@@ -12,7 +12,6 @@ The tool starts with recursive enumeration on linked servers and gather all the 
 Also, the MSSqlPwner tool can be used for NTLM relay capabilities, utilizing functions such as `xp_dirtree`, `xp_subdirs`, `xp_fileexist`, and command execution.
 
 This tool provide opportunities for lateral movement assessments and exploration of linked servers.
-For example, if the current session does not have administrative privileges, the tool will try to find a chain to escalates its own privileges used linked server.
 
 If the authenticated MSSQL user does not have permission to execute certain operations, the tool can find a chain that might allow the execution. 
 For example, it can send a query to a linked server that returns back with a link to the authenticated MSSQL service with higher permissions.
