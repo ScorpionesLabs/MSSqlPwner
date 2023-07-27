@@ -9,9 +9,9 @@ With MSSqlPwner, users can execute custom commands through various methods, incl
 
 The tool starts with recursive enumeration on linked servers and gather all the possible chains.
 
-Also, the MSSqlPwner tool can be used for NTLM relay capabilities, utilizing functions such as xp_dirtree, xp_subdirs, xp_fileexist, and command execution.
+Also, the MSSqlPwner tool can be used for NTLM relay capabilities, utilizing functions such as `xp_dirtree`, `xp_subdirs`, `xp_fileexist`, and command execution.
 
-Also, this tool provide opportunities for lateral movement assessments and exploration of linked servers.
+This tool provide opportunities for lateral movement assessments and exploration of linked servers.
 For example, if the current session does not have administrative privileges, the tool will try to find a chain to escalates its own privileges used linked server.
 
 If the local server does not have permission to execute certain operations, the tool can find a chain to enable execution. 
@@ -21,9 +21,6 @@ The tool also supports recursive querying via links to execute queries and comma
 
 This tool is supported by multiple authentication methods and described below.
 
-MSSqlPwner is an advanced and versatile pentesting tool designed to seamlessly interact with MSSQL servers and based on Impacket.
-
-The MSSqlPwner tool empowers ethical hackers and security professionals to conduct comprehensive security assessments on MSSQL environments.
 ## Disclaimer
 This tool is designed for security professionals and researchers for testing purposes only and should not be used for illegal purposes.
 
