@@ -14,9 +14,9 @@ Also, the MSSqlPwner tool can be used for NTLM relay capabilities, utilizing fun
 This tool provide opportunities for lateral movement assessments and exploration of linked servers.
 For example, if the current session does not have administrative privileges, the tool will try to find a chain to escalates its own privileges used linked server.
 
-If the local server does not have permission to execute certain operations, the tool can find a chain to enable execution. 
-For example, it can send a query to a linked server that returns back with a link to the local server with higher permissions.
-The tool also supports recursive querying via links to execute queries and commands on otherwise inaccessible linked servers.
+If the authenticated MSSQL user does not have permission to execute certain operations, the tool can find a chain that might allow the execution. 
+For example, it can send a query to a linked server that returns back with a link to the authenticated MSSQL service with higher permissions.
+The tool also supports recursive querying via links to execute queries and commands on otherwise inaccessible linked servers directed from the compromised MSSQL service.
 
 
 This tool is supported by multiple authentication methods and described below.
