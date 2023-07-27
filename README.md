@@ -1,6 +1,6 @@
 # MSSqlPwner
 <p align="center">
- <img src="https://github.com/El3ct71k/MSSqlPwner/blob/main/logo.PNG?raw=true">
+ <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/logo.PNG?raw=true">
 </p>
 MSSqlPwner is an advanced and versatile pentesting tool designed to seamlessly interact with MSSQL servers and based on Impacket.
 The MSSqlPwner tool empowers ethical hackers and security professionals to conduct comprehensive security assessments on MSSQL environments.
