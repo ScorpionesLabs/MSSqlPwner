@@ -253,6 +253,9 @@ class MSSQLPwner(BaseSQLClient):
 
         # Creating a stored procedure from an assembly is not allowed by default.
         # This is controlled through the CLR Integration17 setting, which is disabled by default and should be enabled.
+        if not is_custom_asm['results']:
+            LOG.error(is_custom_asm['replay'])
+            return False
         asm_res = is_custom_asm['results'][-1]
         if asm_res['show_advanced_options'] == 'False' or asm_res['clr_enabled'] == 'False' \
                 or asm_res['clr_strict_security'] == 'True':
