@@ -48,7 +48,9 @@ class MSSQLPwner(BaseSQLClient):
             return
 
         for row in rows['results']:
-            linkable_server = utilities.remove_instance_from_server_name(row['SRV_NAME'])
+            linkable_server = row['SRV_NAME']
+            if utilities.is_current_instance(linkable_server):
+                continue
             if linkable_server == state[-1] or not linkable_server:
                 continue
 
@@ -158,7 +160,7 @@ class MSSQLPwner(BaseSQLClient):
         row = self.custom_sql_query(Queries.SERVER_HOSTNAME)
         if not row['is_success']:
             return False
-        self.hostname = utilities.remove_instance_from_server_name(row['results'][0]['ServerName'])
+        self.hostname = row['results'][0]['ServerName'].split("\\")[0].strip()
         LOG.info(f"Discovered hostname: {self.hostname}")
         return True
 

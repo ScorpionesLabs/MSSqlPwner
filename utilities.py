@@ -30,15 +30,16 @@ def hexlify_file(file_location: str) -> str:
     return f'0x{binascii.hexlify(open(file_location, "rb").read()).decode()}'
 
 
-def remove_instance_from_server_name(server_name: str) -> str:
+def is_current_instance(server_name: str) -> bool:
     """
-    This function is responsible to remove the version from the server name.
+    This function is responsible to check if the discovered server is the current instance,
+    its done by checking whether the server name contains the software name, like "Server\\SQLEXPRESS".
     Example:
         ServerName\\InstanceName -> ServerName
     """
     if "\\" in server_name:
-        return server_name.split("\\")[0]
-    return server_name
+        return True
+    return False
 
 
 def build_openquery(linked_server: str, query: str) -> str:
