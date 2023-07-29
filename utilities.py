@@ -60,44 +60,6 @@ def build_exec_at(linked_server: str, query: str) -> str:
     return Queries.EXEC_AT.format(linked_server=linked_server, query=query)
 
 
-def build_exec_at_chain(hostname, linked_server: str, query: str) -> str:
-    """
-    This function is responsible to split a linked server path string in order to build chained queries through the
-     linked servers using the exec function.
-    Example:
-        Host -> Server1 -> Server2 -> Server3
-        EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
-    """
-    flow = linked_server.split(" -> ")
-    # removes the host since the first query is executed on the host
-    if flow[0] == hostname:
-        flow.pop(0)
-
-    chained_query = build_exec_at(flow.pop(), query)
-    if not flow:
-        return chained_query
-    for link in flow:  # Iterates over the linked servers
-        chained_query = build_exec_at(link, chained_query)
-    return chained_query
-
-
-def build_openquery_chain(hostname, linked_server: str, query: str) -> str:
-    """
-    This function is responsible to split a linked server path string in order to build chained queries through the
-     linked servers using the openquery function.
-    Example:
-        Host -> Server1 -> Server2 -> Server3
-        openquery(Server1, 'openquery(Server2, ''openquery(Server3, '''query''')'')')
-    """
-    flow = linked_server.split(" -> ")
-    if flow[0] == hostname:
-        flow.pop(0)
-    chained_query = build_openquery(flow.pop(), query)
-    for link in flow:
-        chained_query = build_openquery(link, chained_query)
-    return chained_query
-
-
 def return_result(status, replay, result):
     return {"is_success": status, "replay": replay, "results": result}
 
@@ -150,6 +112,8 @@ def generate_arg_parser():
 
     module = parser.add_argument_group('Choose module')
     module.add_argument("-link-server", help="Linked server to launch queries", default=None)
+    module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=4,
+                        type=int)
 
     subparser_1 = parser.add_subparsers(title='Command Execution', dest='module')
     subparser_1.add_parser('enumerate', help='Enumerate MSSQL server')

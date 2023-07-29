@@ -13,26 +13,28 @@ class BaseSQLClient(object):
     def __init__(self, address: str, options) -> None:
         self.ms_sql = tds.MSSQL(address, int(options.port))
         self.debug = options.debug
-        self.is_authenticated = False
         self.options = options
+        self.domain = None
 
-    def connect(self, username: str, password: str, domain: str) -> None:
+    def connect(self, username: str, password: str, domain: str) -> bool:
         """
         This function is responsible to connect to the server using the given credentials.
         """
+        self.domain = domain.upper()
         self.ms_sql.connect()
+        ret_val = False
         try:
             if self.options.k is True:
-                self.ms_sql.kerberosLogin(self.options.db, username, password, domain, self.options.hashes,
-                                          self.options.aesKey, kdcHost=self.options.dc_ip)
+                ret_val = self.ms_sql.kerberosLogin(self.options.db, username, password, domain, self.options.hashes,
+                                                    self.options.aesKey, kdcHost=self.options.dc_ip)
             else:
-                self.ms_sql.login(self.options.db, username, password, domain, self.options.hashes,
-                                  self.options.windows_auth)
+                ret_val = self.ms_sql.login(self.options.db, username, password, domain, self.options.hashes,
+                                            self.options.windows_auth)
             self.ms_sql.printReplies()
-            self.is_authenticated = True
         except Exception as e:
             logging.debug("Exception:", exc_info=True)
             logging.error(str(e))
+        return ret_val
 
     def custom_sql_query(self, query: str, wait: bool = True, decode_results: bool = True,
                          print_results: bool = False) -> Union[bool, dict]:
