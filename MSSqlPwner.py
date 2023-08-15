@@ -60,12 +60,10 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
-            if is_adsi_provider:
-                continue
             if linkable_server == self.hostname or linkable_server in state or len(state) >= self.max_recursive_links:
                 continue
-
-            self._retrieve_links(linkable_chain_str, self.state['linkable_servers'][linkable_chain_str])
+            if not is_adsi_provider:
+                self._retrieve_links(linkable_chain_str, self.state['linkable_servers'][linkable_chain_str])
 
     def retrieve_links(self) -> None:
         """
