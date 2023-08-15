@@ -116,27 +116,34 @@ def generate_arg_parser():
     module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=4,
                         type=int)
 
-    subparser_1 = parser.add_subparsers(title='Command Execution', dest='module')
-    subparser_1.add_parser('enumerate', help='Enumerate MSSQL server')
-    command_execution = subparser_1.add_parser('exec', help='Command to execute')
+    modules = parser.add_subparsers(title='Modules', dest='module')
+    modules.add_parser('enumerate', help='Enumerate MSSQL server')
+    command_execution = modules.add_parser('exec', help='Command to execute')
     command_execution.add_argument("-command-execution-method", choices=['xp_cmdshell', 'sp_oacreate'],
                                    default='xp_cmdshell')
     command_execution.add_argument("command", help="Command to execute")
 
-    ntlm_relay = subparser_1.add_parser('ntlm-relay', help='Steal NetNTLM hash / Relay attack')
-    ntlm_relay.add_argument("smb_server", help="Steal NetNTLM hash / Relay attack (Example: \\\\192.168.1.1\\test)",
-                            default=None)
+    ntlm_relay = modules.add_parser('ntlm-relay', help='Steal NetNTLM hash / Relay attack')
+    ntlm_relay.add_argument("smb_server", help="Steal NetNTLM hash / Relay attack (Example: \\\\192.168.1.1\\test)")
     ntlm_relay.add_argument("-relay-method", choices=['xp_dirtree', 'xp_subdirs', 'xp_fileexist'],
                             default='xp_fileexist')
 
-    custom_asm = subparser_1.add_parser('custom-asm', help='Execute procedures using custom assembly')
+    custom_asm = modules.add_parser('custom-asm', help='Execute procedures using custom assembly')
     custom_asm.add_argument("-arch", choices=['x86', 'x64'], default='x64')
     custom_asm.add_argument("-procedure_name", choices=['execute_command', 'run_query', 'run_query_system_service'],
                             default='execute_command')
     custom_asm.add_argument("command", help="Command to execute")
 
-    direct_query = subparser_1.add_parser('direct_query', help='Execute direct query')
+    direct_query = modules.add_parser('direct_query', help='Execute direct query')
     direct_query.add_argument("query", help="Query to execute")
     direct_query.add_argument("-method", choices=['openquery', 'exec_at'], default='openquery')
+
+    retrieve_passwords = modules.add_parser('retrieve-passwords', help='Retrieve passwords from server using LDAP')
+    retrieve_passwords.add_argument("-listen-on",
+                                    help="linked server/local server to listen on (Example: SRV01)")
+    retrieve_passwords.add_argument("-port",
+                                    help="Port to listen on (default 389)", type=int, default=1389)
+    retrieve_passwords.add_argument("-execute-on", help="linked server to retrieve passwords from")
+    retrieve_passwords.add_argument("-arch", choices=['x86', 'x64'], default='x64')
 
     return parser

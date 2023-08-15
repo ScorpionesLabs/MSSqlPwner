@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Management;
 using Microsoft.SqlServer.Server;
 using System.Data.SqlTypes;
 using System.Diagnostics;
@@ -23,8 +22,8 @@ public static class SqlHelper
         //typeMap[typeof(sbyte)]        = SqlDbType.TinyInt; - not sure of sqldbtype
         //typeMap[typeof(ushort)]       = SqlDbType.TinyInt; - not sure of sqldbtype
         //typeMap[typeof(uint)]         = SqlDbType.TinyInt; - not sure of sqldbtype
-        //typeMap[typeof(ulong)]        = SqlDbType.TinyInt; - not sure of sqldbtype
-        //typeMap[typeof(DateSpan)]     = SqlDbType.TinyInt; - not sure of sqldbtype
+        //typeMap[typeof(ulong)]        = SqlDbType.TinyInt; - not sure of sqldbtype   
+        //typeMap[typeof(DateSpan)]     = SqlDbType.TinyInt; - not sure of sqldbtype              
         typeMap[typeof(short)] = SqlDbType.SmallInt;
         typeMap[typeof(int)] = SqlDbType.Int;
         typeMap[typeof(long)] = SqlDbType.BigInt;
@@ -89,7 +88,7 @@ public class StoredProcedures
     [Microsoft.SqlServer.Server.SqlProcedure]
     public static void run_query(SqlString execTsql)
     {
-        // Run as calling SQL/Windows login
+        // Run as calling SQL/Windows login    
         using (SqlConnection connection = new SqlConnection("context connection=true"))
         {
             connection.Open();
@@ -97,29 +96,6 @@ public class StoredProcedures
             SqlContext.Pipe.ExecuteAndSend(command);
             connection.Close();
         }
-    }
-
-    [Microsoft.SqlServer.Server.SqlProcedure]
-    public static void run_command_wmi(SqlString ipAddress, SqlString execCommand)
-    {
-        object[] theProcessToRun = { execCommand };
-        ManagementClass mClass = new ManagementClass(@"\\" + ipAddress.ToString() + @"\root\cimv2:Win32_Process");
-        mClass.InvokeMethod("Create", theProcessToRun);
-
-        // Create the record and specify the metadata for the columns.
-        SqlDataRecord record = new SqlDataRecord(new SqlMetaData("output", SqlDbType.NVarChar, 4000));
-
-        // Mark the begining of the result-set.
-        SqlContext.Pipe.SendResultsStart(record);
-
-        // Set values for each column in the row
-        record.SetString(0, "WMI command executed");
-
-        // Send the row back to the client.
-        SqlContext.Pipe.SendResultsRow(record);
-
-        // Mark the end of the result-set.
-        SqlContext.Pipe.SendResultsEnd();
     }
 
     [Microsoft.SqlServer.Server.SqlProcedure]

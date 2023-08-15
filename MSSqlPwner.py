@@ -49,12 +49,15 @@ class MSSQLPwner(BaseSQLClient):
 
         for row in rows['results']:
             linkable_server = row['SRV_NAME'].upper()
+            provider_name = row['SRV_PROVIDERNAME'].lower()
+            linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
+            if provider_name == "adsdsoobject":
+                LOG.info(f"{linkable_chain_str} is an ADSI provider (can be abused using the retrieve-password module!")
             if utilities.is_current_instance(linkable_server):
                 continue
             if linkable_server == state[-1] or not linkable_server:
                 continue
 
-            linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
             if linkable_server == self.hostname or linkable_server in state or len(state) >= self.max_recursive_links:
                 continue
@@ -461,6 +464,10 @@ if __name__ == '__main__':
         logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
+
+    if not options.target:
+        LOG.error("target must be supplied!")
+        exit()
 
     domain, username, password, address = parse_target(options.target)
 
