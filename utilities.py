@@ -138,12 +138,9 @@ def generate_arg_parser():
     direct_query.add_argument("query", help="Query to execute")
     direct_query.add_argument("-method", choices=['openquery', 'exec_at'], default='openquery')
 
-    retrieve_passwords = modules.add_parser('retrieve-passwords', help='Retrieve passwords from server using LDAP')
-    retrieve_passwords.add_argument("-listen-on",
-                                    help="linked server/local server to listen on (Example: SRV01)")
-    retrieve_passwords.add_argument("-port",
+    retrieve_passwords = modules.add_parser('retrieve-passwords', help='Retrieve password from ADSI servers')
+    retrieve_passwords.add_argument("-listen-port",
                                     help="Port to listen on (default 389)", type=int, default=1389)
-    retrieve_passwords.add_argument("-execute-on", help="linked server to retrieve passwords from")
     retrieve_passwords.add_argument("-arch", choices=['x86', 'x64'], default='x64')
 
     return parser
