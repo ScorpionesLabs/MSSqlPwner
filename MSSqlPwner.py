@@ -49,16 +49,19 @@ class MSSQLPwner(BaseSQLClient):
 
         for row in rows['results']:
             linkable_server = row['SRV_NAME'].upper()
-            provider_name = row['SRV_PROVIDERNAME'].lower()
+            is_adsi_provider = True if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject" else False
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
-            if provider_name == "adsdsoobject":
-                LOG.info(f"{linkable_chain_str} is an ADSI provider (can be abused using the retrieve-password module!")
+            if is_adsi_provider:
+                LOG.info(f"{linkable_chain_str} is an ADSI provider (can be abused using the retrieve-password module!)")
+
             if utilities.is_current_instance(linkable_server):
                 continue
             if linkable_server == state[-1] or not linkable_server:
                 continue
 
             self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
+            if is_adsi_provider:
+                continue
             if linkable_server == self.hostname or linkable_server in state or len(state) >= self.max_recursive_links:
                 continue
 
