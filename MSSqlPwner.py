@@ -48,7 +48,7 @@ class MSSQLPwner(BaseSQLClient):
             return
 
         for row in rows['results']:
-            linkable_server = row['SRV_NAME']
+            linkable_server = row['SRV_NAME'].upper()
             if utilities.is_current_instance(linkable_server):
                 continue
             if linkable_server == state[-1] or not linkable_server:
