@@ -16,21 +16,22 @@ SERVER_HOSTNAME = "SELECT @@SERVERNAME AS [ServerName];"
 
 # Permission checks
 IS_UPDATE_SP_CONFIGURE_ALLOWED = "SELECT IIF(IS_SRVROLEMEMBER('sysadmin', SYSTEM_USER) = 1 OR HAS_PERMS_BY_NAME('sp_configure', 'OBJECT', 'ALTER', SYSTEM_USER) = 1, 'True', 'False') AS [CanChangeConfiguration];"
-IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure}') = 1 THEN 'True' ELSE 'False' END AS [procedure], CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = 'show advanced options') = 1 THEN 'True' ELSE 'False' END AS [show_advanced_options];"
+IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure}') = 1 THEN 'True' ELSE 'False' END AS [procedure];"
 IS_PROCEDURE_EXECUTABLE = "SELECT IIF(HAS_PERMS_BY_NAME('{procedure}', 'OBJECT', 'EXECUTE') = 1, 1, 0) AS [HasPermission];"
 
 # Configuration queries
-RECONFIGURE_SHOW_ADVANCED_OPTIONS = "EXEC sp_configure 'show advanced options', {status}; RECONFIGURE;"
 RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;"
 
 # Custom assemblies queries
-IS_CUSTOM_ASM_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = 'clr enabled') = 1 THEN 'True' ELSE 'False' END AS [clr_enabled], CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = 'show advanced options') = 1 THEN 'True' ELSE 'False' END AS [show_advanced_options], CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = 'clr strict security') = 1 THEN 'True' ELSE 'False' END AS [clr_strict_security];"
 ADD_CUSTOM_ASM = "CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE"
 
 CREATE_PROCEDURE = "CREATE PROCEDURE [dbo].[{procedure_name}] @{arg} NVARCHAR (4000) AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];"
-IS_MY_APP_TRUSTED = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.trusted_assemblies WHERE hash = {myhash}) THEN 'True' ELSE 'False' END AS [status];"
-TRUST_MY_APP = "EXEC sp_add_trusted_assembly @hash = {myhash}, @description = N'Trusted Assembly for My Application';"
-UNTRUST_MY_APP = "EXEC sp_drop_trusted_assembly @hash = {myhash};"
-CUSTOM_ASM_CLEANUP = "DROP PROCEDURE {procedure_name}; DROP ASSEMBLY {asm_name};"
-
+CREATE_FUNCTION = "CREATE FUNCTION [dbo].{function_name}({arg}) RETURNS NVARCHAR(MAX) AS EXTERNAL NAME {asm_name}.[{namespace}.{class_name}].{function_name};"
+IS_MY_APP_TRUSTED = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.trusted_assemblies WHERE hash = {my_hash}) THEN 'True' ELSE 'False' END AS [status];"
+TRUST_MY_APP = "EXEC sp_add_trusted_assembly @hash = {my_hash}, @description = N'Trusted Assembly for My Application';"
+UNTRUST_MY_APP = "EXEC sp_drop_trusted_assembly @hash = {my_hash};"
+DROP_PROCEDURE = "DROP PROCEDURE {procedure_name};"
+DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
+DROP_FUNCTION = "DROP FUNCTION {function_name};"
+FUNCTION_EXECUTION = "SELECT dbo.{function_name}({command});"
 # Retrieve passwords

@@ -30,25 +30,42 @@ def hexlify_file(file_location: str) -> str:
     return f'0x{binascii.hexlify(open(file_location, "rb").read()).decode()}'
 
 
-def is_current_instance(server_name: str) -> bool:
+def remove_service_name(server_name: str) -> str:
     """
-    This function is responsible to check if the discovered server is the current instance,
-    its done by checking whether the server name contains the software name, like "Server\\SQLEXPRESS".
+    This function is responsible to remove the service name from discovered server.
     Example:
         ServerName\\InstanceName -> ServerName
     """
-    if "\\" in server_name:
-        return True
-    return False
+    return server_name.split("\\")[0].strip()
+
+
+def retrieve_procedure_custom_name(procedure_name: str) -> str:
+    """
+    This function is responsible to retrieve the custom name of a procedure.
+    Example:
+        [dbo].[usp_GetUser] -> usp_GetUser
+        sp_oacreate -> Ole Automation Procedures
+        xp_cmdshell -> xp_cmdshell
+    """
+
+    if procedure_name == "sp_oacreate":
+        return "Ole Automation Procedures"
+    return procedure_name
+
+
+def escape_single_quotes(query: str) -> str:
+    """
+    This function is responsible to escape single quotes.
+    """
+    return query.replace("'", "''")
 
 
 def build_openquery(linked_server: str, query: str) -> str:
     """
-    This function is responsible to embed a query within openquery.
-    openquery executes a specified pass-through query on the specified linked server
+    This function is responsible to embed a query within OpenQuery.
+    OpenQuery executes a specified pass-through query on the specified linked server
     """
-    query = query.replace("'", "''")
-    return Queries.OPENQUERY.format(linked_server=linked_server, query=query)
+    return Queries.OPENQUERY.format(linked_server=linked_server, query=escape_single_quotes(query))
 
 
 def build_exec_at(linked_server: str, query: str) -> str:
@@ -57,8 +74,7 @@ def build_exec_at(linked_server: str, query: str) -> str:
     exec executes a command string or character string within a Transact-SQL batch.
     This function uses the "at" argument to refer the query to another linked server.
     """
-    query = query.replace("'", "''")
-    return Queries.EXEC_AT.format(linked_server=linked_server, query=query)
+    return Queries.EXEC_AT.format(linked_server=linked_server, query=escape_single_quotes(query))
 
 
 def return_result(status, replay, result):
@@ -136,11 +152,13 @@ def generate_arg_parser():
 
     direct_query = modules.add_parser('direct_query', help='Execute direct query')
     direct_query.add_argument("query", help="Query to execute")
-    direct_query.add_argument("-method", choices=['openquery', 'exec_at'], default='openquery')
+    direct_query.add_argument("-method", choices=['OpenQuery', 'exec_at'], default='OpenQuery')
 
-    retrieve_passwords = modules.add_parser('retrieve-passwords', help='Retrieve password from ADSI servers')
+    retrieve_passwords = modules.add_parser('retrieve-password', help='Retrieve password from ADSI servers')
     retrieve_passwords.add_argument("-listen-port",
-                                    help="Port to listen on (default 389)", type=int, default=1389)
+                                    help="Port to listen on (default 389)", type=int, default=1489)
+    retrieve_passwords.add_argument("-adsi-provider", help="Password to be retrieved from ADSI provider "
+                                                           "(if not defined, it will choose automatically)",
+                                    default=None)
     retrieve_passwords.add_argument("-arch", choices=['x86', 'x64'], default='x64')
-
     return parser
