@@ -23,7 +23,7 @@ IS_PROCEDURE_EXECUTABLE = "SELECT IIF(HAS_PERMS_BY_NAME('{procedure}', 'OBJECT',
 RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;"
 
 # Custom assemblies queries
-ADD_CUSTOM_ASM = "CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE"
+ADD_CUSTOM_ASM = "CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE;"
 
 CREATE_PROCEDURE = "CREATE PROCEDURE [dbo].[{procedure_name}] @{arg} NVARCHAR (4000) AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];"
 CREATE_FUNCTION = "CREATE FUNCTION [dbo].{function_name}({arg}) RETURNS NVARCHAR(MAX) AS EXTERNAL NAME {asm_name}.[{namespace}.{class_name}].{function_name};"
@@ -34,4 +34,4 @@ DROP_PROCEDURE = "DROP PROCEDURE {procedure_name};"
 DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
 FUNCTION_EXECUTION = "SELECT dbo.{function_name}({command});"
-# Retrieve passwords
+LDAP_QUERY = "SELECT * FROM 'LDAP://localhost:{port}'"

