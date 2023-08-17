@@ -198,8 +198,7 @@ class MSSQLPwner(BaseSQLClient):
             self.get_accessible_users(linked_server)
         return True
 
-    def reconfigure_procedure(self, procedure: str, linked_server: str, required_status: bool,
-                              must_executable: bool = False) -> bool:
+    def reconfigure_procedure(self, procedure: str, linked_server: str, required_status: bool) -> bool:
         """
         This function is responsible to enable a procedure on the server.
         """
@@ -209,10 +208,6 @@ class MSSQLPwner(BaseSQLClient):
 
         if not is_procedure_enabled['is_success']:
             LOG.error(f"Cant fetch is_{procedure}_enabled status")
-            return False
-
-        if is_procedure_enabled['results'][-1]['procedure'] != 'True':
-            LOG.error(f"{procedure} is not enabled")
             return False
 
         if not is_procedure_enabled['is_success']:
