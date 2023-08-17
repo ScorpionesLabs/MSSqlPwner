@@ -17,7 +17,6 @@ SERVER_HOSTNAME = "SELECT @@SERVERNAME AS [ServerName];"
 # Permission checks
 IS_UPDATE_SP_CONFIGURE_ALLOWED = "SELECT IIF(IS_SRVROLEMEMBER('sysadmin', SYSTEM_USER) = 1 OR HAS_PERMS_BY_NAME('sp_configure', 'OBJECT', 'ALTER', SYSTEM_USER) = 1, 'True', 'False') AS [CanChangeConfiguration];"
 IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure}') = 1 THEN 'True' ELSE 'False' END AS [procedure];"
-IS_PROCEDURE_EXECUTABLE = "SELECT IIF(HAS_PERMS_BY_NAME('{procedure}', 'OBJECT', 'EXECUTE') = 1, 1, 0) AS [HasPermission];"
 
 # Configuration queries
 RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;"
