@@ -475,6 +475,7 @@ class MSSQLPwner(BaseSQLClient):
             return True
 
         while self.impersonate_as(linked_server):
+            self.build_chain(Queries.REVERT, linked_server, method="exec_at")
             if func(*args, **{"linked_server": linked_server}):
                 return True
 
