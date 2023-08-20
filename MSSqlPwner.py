@@ -41,11 +41,20 @@ class MSSQLPwner(BaseSQLClient):
         self.state = {
             "linkable_servers": dict(), "impersonation_users": dict(), "authentication_users": dict(),
             "impersonation_history": dict(), "authentication_history": dict(),
-            "adsi_provider_servers": dict(), "hostname": ""
+            "adsi_provider_servers": dict(), "hostname": "", "chain_ids": dict()
         }
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
         self.execute_as = ""
+        self.current_chain_id = 1
+        self.chain_id = None
+
+    def define_chain_id(self, chain_id: int) -> None:
+        """
+            This function is responsible to define the chain id.
+        """
+        LOG.info(f"Defining chain id to {chain_id}")
+        self.chain_id = chain_id
 
     def retrieve_links(self, linked_server: str, old_state: list = None) -> None:
         """
@@ -80,6 +89,8 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
+            self.state['chain_ids'][str(self.current_chain_id)] = linkable_chain_str
+            self.current_chain_id += 1
             if linkable_server == self.state['hostname'] or linkable_server in state\
                     or len(state) >= self.max_recursive_links:
                 continue
@@ -207,8 +218,8 @@ class MSSQLPwner(BaseSQLClient):
 
         self.retrieve_links(self.state['hostname'])
         LOG.info("Linkable servers:")
-        for chain in self.state['linkable_servers'].keys():
-            LOG.info(f"\t{chain}")
+        for chain_id, chain in self.state['chain_ids'].items():
+            LOG.info(f"\t{chain} (ID: {chain_id})")
 
         for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
             self.get_impersonation_users(linked_server)
@@ -440,6 +451,16 @@ class MSSQLPwner(BaseSQLClient):
         This function is responsible to filter the relevant chains.
         """
         sorted_dict = dict(sorted(self.state['linkable_servers'].items(), key=lambda item: len(item[1])))
+        if self.chain_id:
+            if self.chain_id not in self.state['chain_ids'].values():
+                LOG.error(f"Chain id {self.chain_id} is not in the chain ids list")
+                return
+            chain_str = self.state['chain_ids'][self.chain_id]
+            if chain_str not in sorted_dict.keys():
+                LOG.error(f"Chain {chain_str} is not in the chain list")
+                return
+            yield chain_str, sorted_dict[chain_str]
+            return
 
         for chain_str, chain_list in sorted_dict.items():
             if chain_list[-1] != linked_server:
@@ -536,6 +557,9 @@ class MSSQLPwner(BaseSQLClient):
                                             linked_server=linked_server):
                 time.sleep(1)
                 client = MSSQLPwner(self.server_address, self.username, self.options)
+                if self.chain_id:
+                    client.define_chain_id(self.chain_id)
+
                 client.options.debug = False
                 LOG.setLevel(logging.ERROR)
                 client.connect(username, password, domain)
@@ -589,6 +613,8 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
     mssql_client = MSSQLPwner(address, username, options)
+    if options.chain_id:
+        mssql_client.define_chain_id(options.chain_id)
     if not mssql_client.connect(username, password, domain):
         sys.exit(1)
     if not mssql_client.enumerate():

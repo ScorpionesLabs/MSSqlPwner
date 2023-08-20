@@ -101,8 +101,8 @@ def print_state(state: dict):
         LOG.info(f"{adsi_provider_servers} is an ADSI provider (can be abused by the retrieve-password module!)")
 
     LOG.info("Linkable servers:")
-    for chain in state['linkable_servers'].keys():
-        LOG.info(f"\t{chain}")
+    for chain_id, chain in state['chain_ids'].items():
+        LOG.info(f"\t{chain} (ID: {chain_id})")
 
     for linked_server in state['impersonation_users'].keys():
         for username in state['impersonation_users'][linked_server]:
@@ -186,6 +186,7 @@ def generate_arg_parser():
     module.add_argument("-link-server", help="Linked server to launch queries", default=None)
     module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=4,
                         type=int)
+    module.add_argument("-chain-id", help="Chain ID to use", default=None, type=int)
 
     modules = parser.add_subparsers(title='Modules', dest='module')
     modules.add_parser('enumerate', help='Enumerate MSSQL server')
