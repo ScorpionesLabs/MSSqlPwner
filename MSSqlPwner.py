@@ -232,7 +232,7 @@ class MSSQLPwner(BaseSQLClient):
             return False
 
         if is_procedure_enabled['results'][-1]['procedure'] != str(required_status):
-            LOG.warning(f"{procedure} need to be changed")
+            LOG.warning(f"{procedure} need to be changed (Resulted status: {required_status})")
             is_procedure_can_be_configured = self.build_chain(Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED, linked_server)
             if (not is_procedure_can_be_configured['is_success']) or \
                     is_procedure_can_be_configured['results'][0]['CanChangeConfiguration'] == 'False':
@@ -242,11 +242,11 @@ class MSSQLPwner(BaseSQLClient):
             LOG.info(f"{procedure} can be configured")
             query = ""
             status = 1 if required_status else 0
-            rev_status = 0 if required_status else 1
+            rev2self_status = 0 if required_status else 1
             query += Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure_custom_name, status=status)
             LOG.info(f"Reconfiguring {procedure}")
             self.add_rev2self_cmd(linked_server,
-                                  Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure, status=rev_status))
+                                  Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure, status=rev2self_status))
 
             if not self.build_chain(query, linked_server, method="exec_at")['is_success']:
                 LOG.warning(f"Failed to enable {procedure}")
