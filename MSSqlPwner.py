@@ -54,11 +54,11 @@ class MSSQLPwner(BaseSQLClient):
             This function is responsible to check if the given chain id is valid.
         """
         if self.chain_id:
-            if str(self.chain_id) not in self.state['chain_ids'].values():
+            if str(self.chain_id) not in self.state['chain_ids'].keys():
                 LOG.error(f"Chain id {self.chain_id} is not in the chain ids list")
                 return False
             chain_str = self.state['chain_ids'][str(self.chain_id)]
-            if chain_str not in self.state['linkable_servers'].keys():
+            if chain_str not in self.state['linkable_servers'].values():
                 LOG.error(f"Chain {chain_str} is not in the chain list")
                 return False
             LOG.info(f"Chosen chain: {chain_str} (ID: {str(self.chain_id)})")
