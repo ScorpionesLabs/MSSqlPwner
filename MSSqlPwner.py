@@ -10,6 +10,7 @@ import os
 import sys
 import copy
 import time
+import json
 import logging
 import utilities
 from impacket import LOG
@@ -23,7 +24,7 @@ from impacket.examples.utils import parse_target
 
 
 class MSSQLPwner(BaseSQLClient):
-    def __init__(self, server_address, args_options):
+    def __init__(self, server_address, username, args_options):
         super().__init__(server_address, args_options)
         if args_options.debug is True:
             logging.getLogger("impacket").setLevel(logging.DEBUG)
@@ -31,15 +32,18 @@ class MSSQLPwner(BaseSQLClient):
             logging.debug(version.getInstallationPath())
         else:
             logging.getLogger("impacket").setLevel(logging.INFO)
+
+        self.use_state = not args_options.no_state
+        self.username = username
         self.server_address = server_address
         self.debug = args_options.debug
+        self.state_filename = f"{server_address}_{username}.state"
         self.state = {
             "linkable_servers": dict(), "impersonation_users": dict(), "authentication_users": dict(),
             "impersonation_history": dict(), "authentication_history": dict(),
-            "adsi_provider_servers": dict()
+            "adsi_provider_servers": dict(), "hostname": ""
         }
         self.rev2self = dict()
-        self.hostname = None
         self.max_recursive_links = args_options.max_recursive_links
 
     def retrieve_links(self, linked_server: str, old_state: list = None) -> None:
@@ -75,7 +79,8 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
-            if linkable_server == self.hostname or linkable_server in state or len(state) >= self.max_recursive_links:
+            if linkable_server == self.state['hostname'] or linkable_server in state\
+                    or len(state) >= self.max_recursive_links:
                 continue
             self.retrieve_links(linkable_chain_str, self.state['linkable_servers'][linkable_chain_str])
 
@@ -99,7 +104,9 @@ class MSSQLPwner(BaseSQLClient):
         """
         method_func = utilities.build_exec_at if method == "exec_at" else utilities.build_openquery
         chained_query = query
-        flow = flow[1:] if flow[0] == self.hostname else flow  # If the first server is the current server, remove it
+
+        # If the first server is the current server, remove it
+        flow = flow[1:] if flow[0] == self.state['hostname'] else flow
         for link in flow[::-1]:  # Iterates over the linked servers
             chained_query = method_func(link, chained_query)
         return chained_query
@@ -117,7 +124,7 @@ class MSSQLPwner(BaseSQLClient):
         if not linked_server:
             return query
         if linked_server not in self.state['linkable_servers'].keys():
-            LOG.error(f"Server {linked_server} is not linkable from {self.hostname}")
+            LOG.error(f"Server {linked_server} is not linkable from {self.state['hostname']}")
             return None
         return self.build_query_chain(self.state['linkable_servers'][linked_server], query, method)
 
@@ -127,7 +134,7 @@ class MSSQLPwner(BaseSQLClient):
         """
          This function is responsible to build the query chain for the given query and method.
         """
-        if linked_server != self.hostname:
+        if linked_server != self.state['hostname']:
             if method == "blind_OpenQuery":
                 query = f"SELECT 1; {query}"
             query = self.build_linked_query_chain(linked_server, query, method)
@@ -153,7 +160,7 @@ class MSSQLPwner(BaseSQLClient):
             self.state['impersonation_users'][linked_server].add(row['name'])
             LOG.info(f"Can impersonate as {row['name']} on {linked_server} chain")
 
-    def get_accessible_users(self, linked_server: str) -> None:
+    def get_authentication_users(self, linked_server: str) -> None:
         """
         This function is responsible to retrieve all the users that we can authenticate with, recursively.
         """
@@ -177,25 +184,35 @@ class MSSQLPwner(BaseSQLClient):
         if not row['is_success']:
             LOG.error("Failed to retrieve server hostname")
             return False
-        self.hostname = utilities.remove_service_name(row['results'][0]['ServerName'])
-        LOG.info(f"Discovered hostname: {self.hostname}")
+        self.state['hostname'] = utilities.remove_service_name(row['results'][0]['ServerName'])
+        LOG.info(f"Discovered hostname: {self.state['hostname']}")
         return True
 
     def enumerate(self) -> bool:
         """
         This function is responsible to enumerate the server.
         """
+        if os.path.exists(self.state_filename):
+            if self.use_state:
+                if input("State file already exists, do you want to use it? (y/n): ").lower() == 'y':
+                    self.state = json.load(open(self.state_filename))
+                    utilities.print_state(self.state)
+                    return True
+            os.remove(self.state_filename)
+
         if not self.retrieve_hostname():
             return False
 
-        self.retrieve_links(self.hostname)
+        self.retrieve_links(self.state['hostname'])
         LOG.info("Linkable servers:")
         for chain in self.state['linkable_servers'].keys():
             LOG.info(f"\t{chain}")
 
-        for linked_server in list(self.state['linkable_servers'].keys()) + [self.hostname]:
+        for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
             self.get_impersonation_users(linked_server)
-            self.get_accessible_users(linked_server)
+            self.get_authentication_users(linked_server)
+        utilities.store_state(self.state_filename, self.state)
+
         return True
 
     def reconfigure_procedure(self, procedure: str, linked_server: str, required_status: bool) -> bool:
@@ -471,7 +488,7 @@ class MSSQLPwner(BaseSQLClient):
         This function is responsible to build a procedure chain.
         """
 
-        if (not linked_server) or linked_server == self.hostname:
+        if (not linked_server) or linked_server == self.state['hostname']:
             retval = self.procedure_runner(func, args, linked_server)
             if retval:
                 LOG.info(f"Successfully executed {func.__name__} on {linked_server}")
@@ -509,7 +526,7 @@ class MSSQLPwner(BaseSQLClient):
                                              str(port)],
                                             linked_server=linked_server):
                 time.sleep(1)
-                client = MSSQLPwner(self.server_address, self.options)
+                client = MSSQLPwner(self.server_address, self.username, self.options)
                 client.options.debug = False
                 LOG.setLevel(logging.ERROR)
                 client.connect(username, password, domain)
@@ -562,12 +579,12 @@ if __name__ == '__main__':
 
     if options.aesKey is not None:
         options.k = True
-    mssql_client = MSSQLPwner(address, options)
+    mssql_client = MSSQLPwner(address, username, options)
     if not mssql_client.connect(username, password, domain):
         sys.exit(1)
     if not mssql_client.enumerate():
         sys.exit(1)
-    link_server = options.link_server.upper() if options.link_server else mssql_client.hostname
+    link_server = options.link_server.upper() if options.link_server else mssql_client.state['hostname']
 
     if options.module == "enumerate":
         mssql_client.disconnect()

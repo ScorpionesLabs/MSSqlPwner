@@ -1,6 +1,8 @@
+import json
 import argparse
 import binascii
 import hashlib
+from impacket import LOG
 from playbooks import Queries
 
 
@@ -21,6 +23,25 @@ def decode_results(list_of_results: list) -> [dict, list]:
             if hasattr(type(value), 'decode'):
                 list_of_results[key] = value.decode()
         return list_of_results
+
+
+def convert_state(state: dict) -> [dict]:
+    """
+    This function is responsible to convert the state to a serializable object.
+    """
+    if isinstance(state, list):
+        container = []
+        for row in state:
+            container.append(convert_state(row))
+        return container
+    elif isinstance(state, set):
+        return list(state)
+
+    elif state and isinstance(state, dict):
+        for key, value in state.items():
+            state[key] = convert_state(value)
+        return state
+    return state
 
 
 def hexlify_file(file_location: str) -> str:
@@ -58,6 +79,38 @@ def escape_single_quotes(query: str) -> str:
     This function is responsible to escape single quotes.
     """
     return query.replace("'", "''")
+
+
+def store_state(filename, state) -> None:
+    """
+    This function is responsible to store the current state.
+    """
+    state = convert_state(state)
+    json.dump(state, open(filename, 'w'), indent=4)
+    LOG.info("Enumeration completed successfully")
+    LOG.info("Saving state to file")
+
+
+def print_state(state: dict):
+    """
+    This function is responsible to print the last enumeration from the stored state.
+    """
+
+    LOG.info(f"Discovered hostname: {state['hostname']}")
+    for adsi_provider_servers in state['adsi_provider_servers'].keys():
+        LOG.info(f"{adsi_provider_servers} is an ADSI provider (can be abused by the retrieve-password module!)")
+
+    LOG.info("Linkable servers:")
+    for chain in state['linkable_servers'].keys():
+        LOG.info(f"\t{chain}")
+
+    for linked_server in state['impersonation_users'].keys():
+        for username in state['impersonation_users'][linked_server]:
+            LOG.info(f"Can impersonate as {username} on {linked_server} chain")
+
+    for linked_server in state['authentication_users'].keys():
+        for username in state['authentication_users'][linked_server]:
+            LOG.info(f"Can authenticate as {username} on {linked_server} chain")
 
 
 def build_openquery(linked_server: str, query: str) -> str:
@@ -110,6 +163,8 @@ def generate_arg_parser():
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
     parser.add_argument('-windows-auth', action='store_true', default=False, help='whether or not to use Windows '
                                                                                   'Authentication (default False)')
+
+    parser.add_argument('-no-state', action='store_true', default=False, help='whether or not to load existing state ')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
