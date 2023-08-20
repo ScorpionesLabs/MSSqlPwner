@@ -45,6 +45,7 @@ class MSSQLPwner(BaseSQLClient):
         }
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
+        self.execute_as = ""
 
     def retrieve_links(self, linked_server: str, old_state: list = None) -> None:
         """
@@ -134,6 +135,7 @@ class MSSQLPwner(BaseSQLClient):
         """
          This function is responsible to build the query chain for the given query and method.
         """
+        query = f"{self.execute_as}{query}"
         if linked_server != self.state['hostname']:
             if method == "blind_OpenQuery":
                 query = f"SELECT 1; {query}"
@@ -401,6 +403,7 @@ class MSSQLPwner(BaseSQLClient):
             if self.build_chain(Queries.IMPERSONATE_AS_USER.format(username=user), linked_server,
                                 method="exec_at")['is_success']:
                 LOG.info(f"Successfully impersonated as {user} on {linked_server}")
+                self.execute_as = Queries.IMPERSONATE_AS_USER.format(username=user)
                 return True
 
         return False
@@ -425,6 +428,7 @@ class MSSQLPwner(BaseSQLClient):
             if self.build_chain(Queries.AUTHENTICATE_AS_USER.format(username=user), linked_server,
                                 method="exec_at")['is_success']:
                 LOG.info(f"Successfully authenticated as {user} on {linked_server}")
+                self.execute_as = Queries.AUTHENTICATE_AS_USER.format(username=user)
                 return True
 
         return False
