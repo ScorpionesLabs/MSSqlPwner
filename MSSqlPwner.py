@@ -476,7 +476,7 @@ class MSSQLPwner(BaseSQLClient):
         """
         sorted_dict = dict(sorted(self.state['linkable_servers'].items(), key=lambda item: len(item[1])))
         if self.chain_id:
-            chain_str = self.state['chain_ids'][self.chain_id]
+            chain_str = self.state['chain_ids'][str(self.chain_id)]
             yield chain_str, sorted_dict[chain_str]
             return
 
