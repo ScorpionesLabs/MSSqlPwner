@@ -387,6 +387,7 @@ class MSSQLPwner(BaseSQLClient):
         """
         This function is responsible to impersonate as a user.
         """
+        self.execute_as = ""
         if linked_server not in self.state['impersonation_users'].keys():
             return False
 
@@ -412,6 +413,7 @@ class MSSQLPwner(BaseSQLClient):
         """
         This function is responsible to authenticate as a user.
         """
+        self.execute_as = ""
         if linked_server not in self.state['authentication_users'].keys():
             return False
 
@@ -476,21 +478,17 @@ class MSSQLPwner(BaseSQLClient):
         3. Authenticate as a user and execute the procedure.
 
         """
-
+        self.execute_as = ""
         if func(*args, **{"linked_server": linked_server}):
             return True
 
         while self.impersonate_as(linked_server):
-            self.build_chain(Queries.REVERT, linked_server, method="exec_at")
             if func(*args, **{"linked_server": linked_server}):
                 return True
 
         while self.authenticate_as(linked_server):
             if func(*args, **{"linked_server": linked_server}):
                 return True
-
-        if func(*args, **{"linked_server": linked_server}):
-            return True
 
         return False
 
