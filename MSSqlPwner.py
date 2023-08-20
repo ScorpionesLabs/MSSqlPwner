@@ -58,7 +58,7 @@ class MSSQLPwner(BaseSQLClient):
                 LOG.error(f"Chain id {self.chain_id} is not in the chain ids list")
                 return False
             chain_str = self.state['chain_ids'][str(self.chain_id)]
-            if chain_str not in self.state['linkable_servers'].values():
+            if chain_str not in self.state['linkable_servers'].keys():
                 LOG.error(f"Chain {chain_str} is not in the chain list")
                 return False
             LOG.info(f"Chosen chain: {chain_str} (ID: {str(self.chain_id)})")
