@@ -232,7 +232,7 @@ class MSSQLPwner(BaseSQLClient):
             return False
 
         if is_procedure_enabled['results'][-1]['procedure'] != str(required_status):
-            LOG.warning(f"{procedure} need to be changed (Resulted status: {required_status})")
+            LOG.warning(f"{procedure} need to be changed (Resulted status: {is_procedure_enabled['results'][-1]['procedure']})")
             is_procedure_can_be_configured = self.build_chain(Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED, linked_server)
             if (not is_procedure_can_be_configured['is_success']) or \
                     is_procedure_can_be_configured['results'][0]['CanChangeConfiguration'] == 'False':
@@ -470,6 +470,10 @@ class MSSQLPwner(BaseSQLClient):
         3. Authenticate as a user and execute the procedure.
 
         """
+
+        if func(*args, **{"linked_server": linked_server}):
+            return True
+
         while self.impersonate_as(linked_server):
             if func(*args, **{"linked_server": linked_server}):
                 return True
