@@ -638,7 +638,8 @@ if __name__ == '__main__':
     if not mssql_client.enumerate():
         sys.exit(1)
     link_server = options.link_server.upper() if options.link_server else mssql_client.state['hostname']
-
+    if options.chain_id:
+        link_server = mssql_client.retrieve_link_server_from_chain_id(options.chain_id)
     if options.module == "enumerate":
         mssql_client.disconnect()
         sys.exit(1)
