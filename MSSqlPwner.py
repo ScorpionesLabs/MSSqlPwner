@@ -492,12 +492,13 @@ class MSSQLPwner(BaseSQLClient):
         """
         if linked_server not in self.rev2self.keys():
             self.rev2self[linked_server] = []
-        self.rev2self[linked_server].append(cmd)
+        self.rev2self[linked_server].append(f"{self.execute_as}{cmd}")
 
     def rev2self_cmd(self) -> None:
         """
         This function is responsible to revert the database to the previous state.
         """
+        self.execute_as = ""
         if not self.rev2self:
             return
         LOG.info("Reverting to self..")
