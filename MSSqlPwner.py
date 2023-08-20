@@ -433,7 +433,9 @@ class MSSQLPwner(BaseSQLClient):
         """
         This function is responsible to filter the relevant chains.
         """
-        for chain_str, chain_list in self.state['linkable_servers'].items():
+        sorted_dict = dict(sorted(self.state['linkable_servers'].items(), key=lambda item: len(item[1])))
+
+        for chain_str, chain_list in sorted_dict.items():
             if chain_list[-1] != linked_server:
                 continue
 
