@@ -49,12 +49,33 @@ class MSSQLPwner(BaseSQLClient):
         self.current_chain_id = 1
         self.chain_id = None
 
+    def is_valid_chain_id(self) -> bool:
+        """
+            This function is responsible to check if the given chain id is valid.
+        """
+        if self.chain_id:
+            if self.chain_id not in self.state['chain_ids'].values():
+                LOG.error(f"Chain id {self.chain_id} is not in the chain ids list")
+                return False
+            chain_str = self.state['chain_ids'][self.chain_id]
+            if chain_str not in self.state['linkable_servers'].keys():
+                LOG.error(f"Chain {chain_str} is not in the chain list")
+                return False
+            LOG.info(f"Chosen chain: {chain_str} (ID: {self.chain_id})")
+        return True
+
     def define_chain_id(self, chain_id: int) -> None:
         """
             This function is responsible to define the chain id.
         """
         LOG.info(f"Defining chain id to {chain_id}")
         self.chain_id = chain_id
+
+    def retrieve_link_server_from_chain_id(self, chain_id: int) -> str:
+        """
+            This function is responsible to retrieve the link server from the given chain id.
+        """
+        return self.state['chain_ids'][str(chain_id)]
 
     def retrieve_links(self, linked_server: str, old_state: list = None) -> None:
         """
@@ -210,6 +231,8 @@ class MSSQLPwner(BaseSQLClient):
                 if input("State file already exists, do you want to use it? (y/n): ").lower() == 'y':
                     self.state = json.load(open(self.state_filename))
                     utilities.print_state(self.state)
+                    if not self.is_valid_chain_id():
+                        return False
                     return True
             os.remove(self.state_filename)
 
@@ -225,7 +248,8 @@ class MSSQLPwner(BaseSQLClient):
             self.get_impersonation_users(linked_server)
             self.get_authentication_users(linked_server)
         utilities.store_state(self.state_filename, self.state)
-
+        if not self.is_valid_chain_id():
+            return False
         return True
 
     def reconfigure_procedure(self, procedure: str, linked_server: str, required_status: bool) -> bool:
@@ -452,13 +476,7 @@ class MSSQLPwner(BaseSQLClient):
         """
         sorted_dict = dict(sorted(self.state['linkable_servers'].items(), key=lambda item: len(item[1])))
         if self.chain_id:
-            if self.chain_id not in self.state['chain_ids'].values():
-                LOG.error(f"Chain id {self.chain_id} is not in the chain ids list")
-                return
             chain_str = self.state['chain_ids'][self.chain_id]
-            if chain_str not in sorted_dict.keys():
-                LOG.error(f"Chain {chain_str} is not in the chain list")
-                return
             yield chain_str, sorted_dict[chain_str]
             return
 
