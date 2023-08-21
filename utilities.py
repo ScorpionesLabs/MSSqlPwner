@@ -91,6 +91,17 @@ def store_state(filename, state) -> None:
     LOG.info("Saving state to file")
 
 
+def receive_answer(question: str, possible_answers: list, true_result_answer: str) -> bool:
+    """
+    This function is responsible to receive an answer from the user.
+    """
+    while True:
+        answer = input(f"{question} ({'/'.join(possible_answers)}): ").lower()
+        if answer in possible_answers:
+            return answer == true_result_answer
+        LOG.error(f"Invalid answer, only the following answers are allowed: {','.join(possible_answers)}")
+
+
 def print_state(state: dict):
     """
     This function is responsible to print the last enumeration from the stored state.
@@ -104,13 +115,13 @@ def print_state(state: dict):
     for chain_id, chain in state['chain_ids'].items():
         LOG.info(f"\t{chain} (ID: {chain_id})")
 
-    for linked_server in state['impersonation_users'].keys():
-        for username in state['impersonation_users'][linked_server]:
-            LOG.info(f"Can impersonate as {username} on {linked_server} chain")
+    for linked_server in state['server_principals'].keys():
+        for username in state['server_principals'][linked_server]:
+            LOG.info(f"Can impersonate as {username} server principal on {linked_server} chain")
 
-    for linked_server in state['authentication_users'].keys():
-        for username in state['authentication_users'][linked_server]:
-            LOG.info(f"Can authenticate as {username} on {linked_server} chain")
+    for linked_server in state['database_principals'].keys():
+        for username in state['database_principals'][linked_server]:
+            LOG.info(f"Can authenticate as {username} database principal on {linked_server} chain")
 
 
 def build_openquery(linked_server: str, query: str) -> str:
@@ -187,6 +198,7 @@ def generate_arg_parser():
     module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=4,
                         type=int)
     module.add_argument("-chain-id", help="Chain ID to use", default=None, type=int)
+    module.add_argument("-auto-yes", help="Auto answer yes to all questions", action='store_true', default=False)
 
     modules = parser.add_subparsers(title='Modules', dest='module')
     modules.add_parser('enumerate', help='Enumerate MSSQL server')

