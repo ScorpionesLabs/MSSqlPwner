@@ -197,6 +197,9 @@ class MSSQLPwner(BaseSQLClient):
             self.state['server_principals'][linked_server] = set()
 
         for row in rows['results']:
+            if "IMPERSONATE" not in row['permission_name'] and not utilities.is_privileged(
+                    self.state['server_groups'][linked_server], self.high_privileged_server_groups):
+                continue
             self.state['server_principals'][linked_server].add(row['username'])
             LOG.info(f"Can impersonate as {row['username']} server principal on {linked_server} chain")
 
@@ -245,6 +248,10 @@ class MSSQLPwner(BaseSQLClient):
             self.state['database_principals'][linked_server] = set()
 
         for row in rows['results']:
+            for row in rows['results']:
+                if "IMPERSONATE" not in row['permission_name'] and not utilities.is_privileged(
+                        self.state['database_groups'][linked_server], self.high_privileged_database_groups):
+                    continue
             self.state['database_principals'][linked_server].add(row['username'])
             LOG.info(f"Can impersonate as {row['username']} database principal on {linked_server} chain")
 
@@ -300,16 +307,17 @@ class MSSQLPwner(BaseSQLClient):
         for adsi_chain_str in self.state['adsi_provider_servers'].keys():
             LOG.info(f"{adsi_chain_str} is an ADSI provider (can be abused by the retrieve-password module!)")
 
-        self.get_granted_server_principals(self.state['hostname'])
-        self.get_granted_database_principals(self.state['hostname'])
         self.get_user_server_groups(self.state['hostname'])
         self.get_user_database_groups(self.state['hostname'])
+        self.get_granted_server_principals(self.state['hostname'])
+        self.get_granted_database_principals(self.state['hostname'])
 
         for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
-            self.get_granted_server_principals(linked_server)
-            self.get_granted_database_principals(linked_server)
             self.get_user_server_groups(linked_server)
             self.get_user_database_groups(linked_server)
+            self.get_granted_server_principals(linked_server)
+            self.get_granted_database_principals(linked_server)
+
         utilities.store_state(self.state_filename, self.state)
         if not self.is_valid_chain_id():
             return False

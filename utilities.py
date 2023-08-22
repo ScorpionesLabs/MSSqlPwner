@@ -133,6 +133,16 @@ def print_state(state: dict):
             LOG.info(f"Can authenticate as {username} database principal on {linked_server} chain")
 
 
+def is_privileged(current_groups: list, privileged_groups: list) -> bool:
+    """
+    This function is responsible to check if the current user is a member of the privileged groups.
+    """
+    for group in current_groups:
+        if group in privileged_groups:
+            return True
+    return False
+
+
 def build_openquery(linked_server: str, query: str) -> str:
     """
     This function is responsible to embed a query within OpenQuery.
