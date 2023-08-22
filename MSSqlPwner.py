@@ -91,7 +91,7 @@ class MSSQLPwner(BaseSQLClient):
         for row in rows['results']:
             if not row['SRV_NAME']:
                 continue
-            if  row['SRV_NAME'] == row['SRV_DATASOURCE']:
+            if linked_server != self.state['hostname'] and row['SRV_NAME'] == row['SRV_DATASOURCE']:
                 continue
 
             linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
