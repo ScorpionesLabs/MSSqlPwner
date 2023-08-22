@@ -92,7 +92,7 @@ class MSSQLPwner(BaseSQLClient):
             if not row['SRV_NAME']:
                 continue
 
-            linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
+            linkable_server = utilities.remove_service_name(row['SRV_NAME'])
             if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject":
                 adsi_chain_str = f"{' -> '.join(state)} (Provider: {linkable_server})"
                 if adsi_chain_str in self.state['adsi_provider_servers'].keys():
@@ -235,7 +235,7 @@ class MSSQLPwner(BaseSQLClient):
         self.state['hostname'] = utilities.remove_service_name(row['results'][0]['ServerName'])
         LOG.info(f"Discovered hostname: {self.state['hostname']}")
         if self.domain:
-        	self.state['hostname'] += f".{self.domain.upper()}"
+            self.state['hostname'] += f".{self.domain}"
         return True
 
     def enumerate(self) -> bool:
@@ -598,7 +598,7 @@ class MSSQLPwner(BaseSQLClient):
 
     def retrieve_adsi_chain_password(self, linked_server: str, adsi_provider: str):
         for _, chain in self.state['adsi_provider_servers'].items():
-            if adsi_provider and adsi_provider.upper() != chain[-1]:
+            if adsi_provider and adsi_provider != chain[-1]:
                 continue
             if linked_server != chain[-2]:
                 continue
@@ -675,7 +675,7 @@ if __name__ == '__main__':
         sys.exit(1)
     if not mssql_client.enumerate():
         sys.exit(1)
-    link_server = options.link_server.upper() if options.link_server else mssql_client.state['hostname']
+    link_server = options.link_server if options.link_server else mssql_client.state['hostname']
     if options.chain_id:
         link_server = mssql_client.retrieve_link_server_from_chain_id(options.chain_id)
     if options.module == "enumerate":
