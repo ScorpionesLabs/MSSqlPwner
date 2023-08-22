@@ -93,9 +93,6 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
-            linkable_server = linkable_server.replace(f"{self.domain.upper()}.", "")
-            if linkable_server == state[-1].split(".")[0]:
-                continue
 
             is_adsi_provider = True if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject" else False
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
@@ -106,7 +103,7 @@ class MSSQLPwner(BaseSQLClient):
                 self.state['adsi_provider_servers'][linkable_chain_str] = state + [linkable_server]
                 continue
 
-            if linkable_server == state[-1]:
+            if linkable_server == state[-1].split(".")[0]:
                 continue
 
             self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
@@ -239,6 +236,8 @@ class MSSQLPwner(BaseSQLClient):
             return False
         self.state['hostname'] = utilities.remove_service_name(row['results'][0]['ServerName'])
         LOG.info(f"Discovered hostname: {self.state['hostname']}")
+        if self.domain:
+        	self.state['hostname'] += f".{self.domain.upper()}"
         return True
 
     def enumerate(self) -> bool:
