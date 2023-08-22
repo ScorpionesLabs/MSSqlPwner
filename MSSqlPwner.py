@@ -263,6 +263,9 @@ class MSSQLPwner(BaseSQLClient):
         for chain_id, chain in self.state['chain_ids'].items():
             LOG.info(f"\t{chain} (ID: {chain_id})")
 
+        self.get_granted_server_principals(self.state['hostname'])
+        self.get_granted_database_principals(self.state['hostname'])
+
         for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
             self.get_granted_server_principals(linked_server)
             self.get_granted_database_principals(linked_server)
