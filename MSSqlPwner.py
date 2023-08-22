@@ -46,7 +46,8 @@ class MSSQLPwner(BaseSQLClient):
         self.state = {
             "linkable_servers": dict(), "server_principals": dict(), "database_principals": dict(),
             "server_principals_history": dict(), "database_principals_history": dict(),
-            "adsi_provider_servers": dict(), "hostname": "", "chain_ids": dict(), "server_groups": dict()
+            "adsi_provider_servers": dict(), "hostname": "", "chain_ids": dict(), "server_groups": dict(),
+            "database_groups": dict()
         }
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
@@ -201,11 +202,11 @@ class MSSQLPwner(BaseSQLClient):
 
     def get_user_server_groups(self, linked_server: str) -> None:
         """
-        This function is responsible to retrieve all groups our user is member of.
+        This function is responsible to retrieve all server groups our user is member of.
         """
         rows = self.build_chain(Queries.GET_USER_SERVER_GROUPS, linked_server)
         if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve user groups list from {linked_server}")
+            LOG.warning(f"Failed to retrieve user server groups list from {linked_server}")
             return
 
         if linked_server not in self.state['server_groups'].keys():
@@ -213,7 +214,23 @@ class MSSQLPwner(BaseSQLClient):
 
         for row in rows['results']:
             self.state['server_groups'][linked_server].add(row['group'])
-            LOG.info(f"Our user is member of the {row['group']} group on {linked_server} chain")
+            LOG.info(f"Our user is member of the {row['group']} server group on {linked_server} chain")
+
+    def get_user_database_groups(self, linked_server: str) -> None:
+        """
+        This function is responsible to retrieve all server groups our user is member of.
+        """
+        rows = self.build_chain(Queries.GET_USER_DATABASE_GROUPS, linked_server)
+        if not rows['is_success']:
+            LOG.warning(f"Failed to retrieve user database groups list from {linked_server}")
+            return
+
+        if linked_server not in self.state['database_groups'].keys():
+            self.state['database_groups'][linked_server] = set()
+
+        for row in rows['results']:
+            self.state['database_groups'][linked_server].add(row['group'])
+            LOG.info(f"Our user is member of the {row['group']} database group on {linked_server} chain")
 
     def get_granted_database_principals(self, linked_server: str) -> None:
         """
@@ -286,11 +303,13 @@ class MSSQLPwner(BaseSQLClient):
         self.get_granted_server_principals(self.state['hostname'])
         self.get_granted_database_principals(self.state['hostname'])
         self.get_user_server_groups(self.state['hostname'])
+        self.get_user_database_groups(self.state['hostname'])
 
         for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
             self.get_granted_server_principals(linked_server)
             self.get_granted_database_principals(linked_server)
             self.get_user_server_groups(linked_server)
+            self.get_user_database_groups(linked_server)
         utilities.store_state(self.state_filename, self.state)
         if not self.is_valid_chain_id():
             return False

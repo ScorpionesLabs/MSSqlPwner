@@ -118,7 +118,11 @@ def print_state(state: dict):
 
     for linked_server in state['server_groups'].keys():
         for group in state['server_groups'][linked_server]:
-            LOG.info(f"Our user is member of the {group} group on {linked_server} chain")
+            LOG.info(f"Our user is member of the {group} server group on {linked_server} chain")
+
+    for linked_server in state['database_groups'].keys():
+        for group in state['database_groups'][linked_server]:
+            LOG.info(f"Our user is member of the {group} database group on {linked_server} chain")
 
     for linked_server in state['server_principals'].keys():
         for username in state['server_principals'][linked_server]:
