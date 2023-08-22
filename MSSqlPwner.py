@@ -93,9 +93,9 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
-            if linkable_server == utilities.remove_service_name(linked_server):
+            if linkable_server == linked_server.split(".")[0]:
                 continue
-                
+
             is_adsi_provider = True if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject" else False
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             if is_adsi_provider:
