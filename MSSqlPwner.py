@@ -93,16 +93,15 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
-
-            is_adsi_provider = True if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject" else False
-            linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
-            if is_adsi_provider:
-                if linkable_chain_str in self.state['adsi_provider_servers'].keys():
+            if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject":
+                adsi_chain_str = f"{' -> '.join(state)} (Provider: {linkable_server})"
+                if adsi_chain_str in self.state['adsi_provider_servers'].keys():
                     continue
-                LOG.info(f"{linkable_chain_str} is an ADSI provider (can be abused by the retrieve-password module!)")
-                self.state['adsi_provider_servers'][linkable_chain_str] = state + [linkable_server]
+                LOG.info(f"{adsi_chain_str} is an ADSI provider (can be abused by the retrieve-password module!)")
+                self.state['adsi_provider_servers'][adsi_chain_str] = state + [linkable_server]
                 continue
 
+            linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             if linkable_server == state[-1].split(".")[0]:
                 continue
 

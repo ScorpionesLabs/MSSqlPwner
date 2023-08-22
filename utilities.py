@@ -108,12 +108,13 @@ def print_state(state: dict):
     """
 
     LOG.info(f"Discovered hostname: {state['hostname']}")
-    for adsi_provider_servers in state['adsi_provider_servers'].keys():
-        LOG.info(f"{adsi_provider_servers} is an ADSI provider (can be abused by the retrieve-password module!)")
 
     LOG.info("Linkable servers:")
     for chain_id, chain in state['chain_ids'].items():
         LOG.info(f"\t{chain} (ID: {chain_id})")
+
+    for adsi_provider_servers in state['adsi_provider_servers'].keys():
+        LOG.info(f"{adsi_provider_servers} is an ADSI provider (can be abused by the retrieve-password module!)")
 
     for linked_server in state['server_principals'].keys():
         for username in state['server_principals'][linked_server]:
@@ -225,7 +226,7 @@ def generate_arg_parser():
     retrieve_passwords = modules.add_parser('retrieve-password', help='Retrieve password from ADSI servers')
     retrieve_passwords.add_argument("-listen-port",
                                     help="Port to listen on (default 389)", type=int, default=1489)
-    retrieve_passwords.add_argument("-adsi-provider", help="Password to be retrieved from ADSI provider "
+    retrieve_passwords.add_argument("-adsi-provider", help="choose ADSI provider "
                                                            "(if not defined, it will choose automatically)",
                                     default=None)
     retrieve_passwords.add_argument("-arch", choices=['x86', 'x64'], default='x64')
