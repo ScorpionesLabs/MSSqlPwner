@@ -116,6 +116,10 @@ def print_state(state: dict):
     for adsi_provider_servers in state['adsi_provider_servers'].keys():
         LOG.info(f"{adsi_provider_servers} is an ADSI provider (can be abused by the retrieve-password module!)")
 
+    for linked_server in state['server_groups'].keys():
+        for group in state['server_groups'][linked_server]:
+            LOG.info(f"Our user is member of the {group} group on {linked_server} chain")
+
     for linked_server in state['server_principals'].keys():
         for username in state['server_principals'][linked_server]:
             LOG.info(f"Can impersonate as {username} server principal on {linked_server} chain")
@@ -215,7 +219,7 @@ def generate_arg_parser():
 
     custom_asm = modules.add_parser('custom-asm', help='Execute procedures using custom assembly')
     custom_asm.add_argument("-arch", choices=['x86', 'x64'], default='x64')
-    custom_asm.add_argument("-procedure_name", choices=['execute_command', 'run_query', 'run_query_system_service'],
+    custom_asm.add_argument("-procedure-name", choices=['execute_command', 'run_query', 'run_query_system_service'],
                             default='execute_command')
     custom_asm.add_argument("command", help="Command to execute")
 

@@ -23,6 +23,9 @@ from base_sql_client import BaseSQLClient
 from impacket.examples.utils import parse_target
 
 
+# TODO: Change the link server list and retrieve both servers and chains
+# TODO: Check if our user is sysadmin, if it is, the IMPERSONATION is not relevant.
+# TODO: Detect architecture
 # TODO: Add cross-impersonation within the linked server execution chain
 
 class MSSQLPwner(BaseSQLClient):
@@ -43,7 +46,7 @@ class MSSQLPwner(BaseSQLClient):
         self.state = {
             "linkable_servers": dict(), "server_principals": dict(), "database_principals": dict(),
             "server_principals_history": dict(), "database_principals_history": dict(),
-            "adsi_provider_servers": dict(), "hostname": "", "chain_ids": dict()
+            "adsi_provider_servers": dict(), "hostname": "", "chain_ids": dict(), "server_groups": dict()
         }
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
@@ -196,6 +199,22 @@ class MSSQLPwner(BaseSQLClient):
             self.state['server_principals'][linked_server].add(row['username'])
             LOG.info(f"Can impersonate as {row['username']} server principal on {linked_server} chain")
 
+    def get_user_server_groups(self, linked_server: str) -> None:
+        """
+        This function is responsible to retrieve all groups our user is member of.
+        """
+        rows = self.build_chain(Queries.GET_USER_SERVER_GROUPS, linked_server)
+        if not rows['is_success']:
+            LOG.warning(f"Failed to retrieve user groups list from {linked_server}")
+            return
+
+        if linked_server not in self.state['server_groups'].keys():
+            self.state['server_groups'][linked_server] = set()
+
+        for row in rows['results']:
+            self.state['server_groups'][linked_server].add(row['group'])
+            LOG.info(f"Our user is member of the {row['group']} group on {linked_server} chain")
+
     def get_granted_database_principals(self, linked_server: str) -> None:
         """
         This function is responsible to retrieve all the database impersonation users recursively.
@@ -266,10 +285,12 @@ class MSSQLPwner(BaseSQLClient):
 
         self.get_granted_server_principals(self.state['hostname'])
         self.get_granted_database_principals(self.state['hostname'])
+        self.get_user_server_groups(self.state['hostname'])
 
         for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
             self.get_granted_server_principals(linked_server)
             self.get_granted_database_principals(linked_server)
+            self.get_user_server_groups(linked_server)
         utilities.store_state(self.state_filename, self.state)
         if not self.is_valid_chain_id():
             return False
