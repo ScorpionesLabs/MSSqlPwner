@@ -93,6 +93,7 @@ class MSSQLPwner(BaseSQLClient):
                 continue
 
             linkable_server = utilities.remove_service_name(row['SRV_NAME'].upper())
+            linkable_server = linkable_server.replace(f"{self.domain.upper()}.", "")
             if linkable_server == state[-1].split(".")[0]:
                 continue
 
