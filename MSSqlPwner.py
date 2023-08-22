@@ -97,7 +97,6 @@ class MSSQLPwner(BaseSQLClient):
                 adsi_chain_str = f"{' -> '.join(state)} (Provider: {linkable_server})"
                 if adsi_chain_str in self.state['adsi_provider_servers'].keys():
                     continue
-                LOG.info(f"{adsi_chain_str} is an ADSI provider (can be abused by the retrieve-password module!)")
                 self.state['adsi_provider_servers'][adsi_chain_str] = state + [linkable_server]
                 continue
 
@@ -261,6 +260,9 @@ class MSSQLPwner(BaseSQLClient):
         LOG.info("Linkable servers:")
         for chain_id, chain in self.state['chain_ids'].items():
             LOG.info(f"\t{chain} (ID: {chain_id})")
+
+        for adsi_chain_str in self.state['adsi_provider_servers'].keys():
+            LOG.info(f"{adsi_chain_str} is an ADSI provider (can be abused by the retrieve-password module!)")
 
         self.get_granted_server_principals(self.state['hostname'])
         self.get_granted_database_principals(self.state['hostname'])
