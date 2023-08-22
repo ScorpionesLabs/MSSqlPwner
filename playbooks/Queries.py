@@ -1,6 +1,6 @@
 # Impersonation and authentication queries
-CAN_IMPERSONATE_AS_SERVER_PRINCIPAL = "SELECT distinct b.name as username FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE' AND a.state_desc = 'GRANT';"
-CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL = "SELECT distinct b.name as username FROM sys.database_permissions a INNER JOIN sys.database_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE' AND a.state_desc = 'GRANT';"
+CAN_IMPERSONATE_AS_SERVER_PRINCIPAL = "SELECT distinct b.name as username FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id;"
+CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL = "SELECT distinct b.name as username FROM sys.database_permissions a INNER JOIN sys.database_principals b ON a.grantor_principal_id = b.principal_id;"
 IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}';"
 IMPERSONATE_AS_DATABASE_PRINCIPAL = "EXECUTE AS USER = '{username}';"
 
