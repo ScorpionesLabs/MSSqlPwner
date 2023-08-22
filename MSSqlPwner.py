@@ -200,6 +200,8 @@ class MSSQLPwner(BaseSQLClient):
             if "IMPERSONATE" not in row['permission_name'] and not utilities.is_privileged(
                     self.state['server_groups'][linked_server], self.high_privileged_server_groups):
                 continue
+            if row['username'] in self.state['server_principals'][linked_server]:
+                continue
             self.state['server_principals'][linked_server].add(row['username'])
             LOG.info(f"Can impersonate as {row['username']} server principal on {linked_server} chain")
 
@@ -248,10 +250,11 @@ class MSSQLPwner(BaseSQLClient):
             self.state['database_principals'][linked_server] = set()
 
         for row in rows['results']:
-            for row in rows['results']:
-                if "IMPERSONATE" not in row['permission_name'] and not utilities.is_privileged(
-                        self.state['database_groups'][linked_server], self.high_privileged_database_groups):
-                    continue
+            if "IMPERSONATE" not in row['permission_name'] and not utilities.is_privileged(
+                    self.state['database_groups'][linked_server], self.high_privileged_database_groups):
+                continue
+            if row['username'] in self.state['database_principals'][linked_server]:
+                continue
             self.state['database_principals'][linked_server].add(row['username'])
             LOG.info(f"Can impersonate as {row['username']} database principal on {linked_server} chain")
 
