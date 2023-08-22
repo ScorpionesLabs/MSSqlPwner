@@ -284,7 +284,7 @@ class MSSQLPwner(BaseSQLClient):
             LOG.error(f"Cant fetch is_{procedure}_executable status")
             return False
 
-        if is_procedure_enabled['results'][-1]['procedure'] != str(required_status):
+        if is_procedure_enabled['results'] and is_procedure_enabled['results'][-1]['procedure'] != str(required_status):
             LOG.warning(
                 f"{procedure} need to be changed (Resulted status: {is_procedure_enabled['results'][-1]['procedure']})")
             is_procedure_can_be_configured = self.build_chain(Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED, linked_server)
