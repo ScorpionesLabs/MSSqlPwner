@@ -144,7 +144,7 @@ class MSSQLPwner(BaseSQLClient):
         """
             This function is responsible to detect the architecture of a remote server.
         """
-        if hasattr(options, "arch") and options.arch != 'autodetect':
+        if hasattr(options, "arch") or options.arch != 'autodetect':
             return options.arch
 
         for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
