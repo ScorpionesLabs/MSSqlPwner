@@ -171,8 +171,6 @@ class MSSQLPwner(BaseSQLClient):
         """
             This function is responsible to retrieve the server information.
         """
-        self.add_to_server_state(linked_server, "chain_id", self.current_chain_id)
-        self.current_chain_id += 1
         if linked_server:
             server_information = self.build_chain(Queries.SERVER_INFORMATION, linked_server)
             user_information = self.build_chain(Queries.USER_INFORMATION, linked_server)
@@ -275,6 +273,8 @@ class MSSQLPwner(BaseSQLClient):
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
                                      remove_duplicates=False)
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
+            self.add_to_server_state(linked_server, "chain_id", self.current_chain_id)
+            self.current_chain_id += 1
             self.retrieve_server_information(linkable_chain_str, linkable_server)
             if linkable_server == self.state['local_hostname'] or linkable_server in state \
                     or len(state) >= self.max_recursive_links:
