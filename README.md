@@ -61,7 +61,7 @@ Discover new possibilities for lateral movement, stealthy querying, and precise 
 
 ## Installation
 ```
-git clone https://github.com/El3ct71k/MSSqlPwner
+git clone https://github.com/ScorpionesLabs/MSSqlPwner
 cd MSSqlPwner
 pip3 install -r requirements.txt
 python3 MSSqlPwner.py
@@ -95,6 +95,9 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct_query 
 
 # Retrieving password from the linked server DC01
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 retrive-password
+
+# Interactive mode
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth interactive
 ```
 
 

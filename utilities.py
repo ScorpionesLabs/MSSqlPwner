@@ -1,3 +1,5 @@
+import os
+import re
 import json
 import argparse
 import binascii
@@ -102,35 +104,23 @@ def receive_answer(question: str, possible_answers: list, true_result_answer: st
         LOG.error(f"Invalid answer, only the following answers are allowed: {','.join(possible_answers)}")
 
 
-def print_state(state: dict):
+def print_state(state: dict) -> None:
     """
     This function is responsible to print the last enumeration from the stored state.
     """
-
-    LOG.info(f"Discovered hostname: {state['hostname']}")
-
     LOG.info("Linkable servers:")
-    for chain_id, chain in state['chain_ids'].items():
-        LOG.info(f"\t{chain} (ID: {chain_id})")
+    translation = json.load(open(os.path.join("./", "playbooks", "translation.json")))
+    for _, server_info in state['servers_info'].items():
+        for translation_key, translation_value in translation.items():
+            if translation_key in server_info.keys():
+                val = server_info[translation_key]
+                if not val:
+                    continue
+                if isinstance(val, list):
+                    val = ', '.join(val)
 
-    for adsi_provider_servers in state['adsi_provider_servers'].keys():
-        LOG.info(f"{adsi_provider_servers} is an ADSI provider (can be abused by the retrieve-password module!)")
-
-    for linked_server in state['server_groups'].keys():
-        for group in state['server_groups'][linked_server]:
-            LOG.info(f"Our user is member of the {group} server group on {linked_server} chain")
-
-    for linked_server in state['database_groups'].keys():
-        for group in state['database_groups'][linked_server]:
-            LOG.info(f"Our user is member of the {group} database group on {linked_server} chain")
-
-    for linked_server in state['server_principals'].keys():
-        for username in state['server_principals'][linked_server]:
-            LOG.info(f"Can impersonate as {username} server principal on {linked_server} chain")
-
-    for linked_server in state['database_principals'].keys():
-        for username in state['database_principals'][linked_server]:
-            LOG.info(f"Can authenticate as {username} database principal on {linked_server} chain")
+                LOG.info(f"{translation_value}: {str(val).strip()}")
+        LOG.info("-" * 50)
 
 
 def is_privileged(current_groups: list, privileged_groups: list) -> bool:
@@ -141,6 +131,30 @@ def is_privileged(current_groups: list, privileged_groups: list) -> bool:
         if group in privileged_groups:
             return True
     return False
+
+
+def filter_servers_by_chain_id(servers_info: dict, chain_id: int):
+    """
+    This function is responsible to filter servers by chain id.
+    """
+    filtered_servers = {key: value for key, value in servers_info.items() if value['chain_id'] == chain_id}
+    return filtered_servers
+
+
+def filter_servers_by_link_name(servers_info: dict, link_name: str):
+    """
+    This function is responsible to filter servers by chain id.
+    """
+    filtered_servers = {key: value for key, value in servers_info.items() if value['link_name'] == link_name}
+    return sort_servers_by_chain_id(filtered_servers)
+
+
+def sort_servers_by_chain_id(servers_info):
+    sorted_servers = dict(sorted(
+        servers_info.items(),
+        key=lambda item: item[1]['chain_id']  # Sort by chain_id
+    ))
+    return sorted_servers
 
 
 def build_openquery(linked_server: str, query: str) -> str:
@@ -182,11 +196,26 @@ def calculate_sha512_hash(file_path: str) -> str:
     return f"0x{sha512_hash.hexdigest()}"
 
 
+class MyArgumentParser(argparse.ArgumentParser):
+    def exit(self, status=0, message=None):
+        return
+
+
+def split_exclude_quotes(s):
+    # Match quoted strings and non-quoted parts
+    pattern = r'"([^"]*)"|\'([^\']*)\'|([^"\' ]+)'
+    parts = re.findall(pattern, s)
+
+    # Join non-empty parts and return
+    return [p[0] or p[1] or p[2] for p in parts]
+
+
 def generate_arg_parser():
     """
     This function is respponsible to manage the arguments passed to the script.
     """
-    parser = argparse.ArgumentParser(add_help=True, description="TDS client implementation (SSL supported).")
+
+    parser = MyArgumentParser(add_help=True, description="TDS client implementation (SSL supported).")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
@@ -221,6 +250,11 @@ def generate_arg_parser():
 
     modules = parser.add_subparsers(title='Modules', dest='module')
     modules.add_parser('enumerate', help='Enumerate MSSQL server')
+    set_chain = modules.add_parser('set-chain', help='Set chain ID (For interactive-mode only!)')
+    modules.add_parser('get-chain-list', help='Get chain list (For interactive-mode only!)')
+    set_chain.add_argument("chain", help="Chain ID to use", type=int)
+    set_link_server = modules.add_parser('set-link-server', help='Set link server (For interactive-mode only!)')
+    set_link_server.add_argument("link", help="Linked server to launch queries")
     command_execution = modules.add_parser('exec', help='Command to execute')
     command_execution.add_argument("-command-execution-method", choices=['xp_cmdshell', 'sp_oacreate'],
                                    default='xp_cmdshell')
@@ -232,7 +266,7 @@ def generate_arg_parser():
                             default='xp_fileexist')
 
     custom_asm = modules.add_parser('custom-asm', help='Execute procedures using custom assembly')
-    custom_asm.add_argument("-arch", choices=['x86', 'x64'], default='x64')
+    custom_asm.add_argument("-arch", choices=['x86', 'x64', 'autodetect'], default='autodetect')
     custom_asm.add_argument("-procedure-name", choices=['execute_command', 'run_query', 'run_query_system_service'],
                             default='execute_command')
     custom_asm.add_argument("command", help="Command to execute")
@@ -243,9 +277,11 @@ def generate_arg_parser():
 
     retrieve_passwords = modules.add_parser('retrieve-password', help='Retrieve password from ADSI servers')
     retrieve_passwords.add_argument("-listen-port",
-                                    help="Port to listen on (default 389)", type=int, default=1489)
+                                    help="Port to listen on (default 1489)", type=int, default=1489)
     retrieve_passwords.add_argument("-adsi-provider", help="choose ADSI provider "
                                                            "(if not defined, it will choose automatically)",
                                     default=None)
-    retrieve_passwords.add_argument("-arch", choices=['x86', 'x64'], default='x64')
-    return parser
+    retrieve_passwords.add_argument("-arch", choices=['x86', 'x64', 'autodetect'], default='autodetect')
+    modules.add_parser('interactive', help='Interactive Mode')
+
+    return parser, list(modules.choices.keys())
