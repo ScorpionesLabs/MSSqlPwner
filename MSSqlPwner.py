@@ -107,21 +107,14 @@ class MSSQLPwner(BaseSQLClient):
             LOG.info(f"Chosen chain: {chain_str} (ID: {self.chain_id})")
         return True
 
-    def get_chain_title(self):
+    def get_title(self, linked_server):
         """
-            This function is responsible to get the chain title.
+            This function is responsible to get chain or linked server title.
         """
-        filtered_servers = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
-        chain_str = list(filtered_servers.keys())[0]
-        username = filtered_servers[chain_str]['server_user']
-        db_user = filtered_servers[chain_str]['db_user']
-        return f"{chain_str} (Server user: {username} | DB User: {db_user})"
-
-    def get_linked_server_title(self, linked_server: str):
-        """
-            This function is responsible to get the linked server title.
-        """
-        filtered_servers = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
+        if self.chain_id:
+            filtered_servers = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
+        else:
+            filtered_servers = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
         chain_str = list(filtered_servers.keys())[0]
         username = filtered_servers[chain_str]['server_user']
         db_user = filtered_servers[chain_str]['db_user']
@@ -783,11 +776,8 @@ if __name__ == '__main__':
         while True:
             try:
                 parser.usage = argparse.SUPPRESS
-                if chosen_chain_id:
-                    title = mssql_client.get_chain_title()
-                else:
-                    chosen_link_server = chosen_link_server if chosen_link_server else mssql_client.state['local_hostname']
-                    title = mssql_client.get_linked_server_title(chosen_link_server)
+                chosen_link_server = chosen_link_server if chosen_link_server else mssql_client.state['local_hostname']
+                title = mssql_client.get_title(chosen_link_server)
 
                 args_list = input(f"MSSqlPwner#{title}> ").strip()
                 if args_list.split(" ")[0] not in available_modules:
