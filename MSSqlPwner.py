@@ -170,6 +170,7 @@ class MSSQLPwner(BaseSQLClient):
         """
         This function is responsible to return the chain list.
         """
+        LOG.info("Chain list:")
         for chain_str, server_info in utilities.sort_servers_by_chain_id(self.state['servers_info']).items():
             username = server_info['server_user']
             db_user = server_info['db_user']
@@ -828,9 +829,6 @@ if __name__ == '__main__':
                     chosen_link_server = args.link
                     continue
 
-                if args.module == "get-chain-list":
-                    mssql_client.get_chain_list()
-                    continue
                 if not modules.execute_module(args, mssql_client):
                     break
 

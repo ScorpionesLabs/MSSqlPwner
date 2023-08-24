@@ -251,7 +251,7 @@ def generate_arg_parser():
     modules = parser.add_subparsers(title='Modules', dest='module')
     modules.add_parser('enumerate', help='Enumerate MSSQL server')
     set_chain = modules.add_parser('set-chain', help='Set chain ID (For interactive-mode only!)')
-    modules.add_parser('get-chain-list', help='Get chain list (For interactive-mode only!)')
+    modules.add_parser('get-chain-list', help='Get chain list')
     set_chain.add_argument("chain", help="Chain ID to use", type=int)
     set_link_server = modules.add_parser('set-link-server', help='Set link server (For interactive-mode only!)')
     set_link_server.add_argument("link", help="Linked server to launch queries")

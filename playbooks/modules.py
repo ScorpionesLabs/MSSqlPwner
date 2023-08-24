@@ -42,5 +42,7 @@ def execute_module(options, mssql_client):
 
     elif options.module == 'retrieve-password':
         mssql_client.retrieve_password(link_server, options.listen_port, options.adsi_provider)
+    elif options.module == 'get-chain-list':
+        mssql_client.get_chain_list()
 
     return True
