@@ -67,7 +67,7 @@ class MSSQLPwner(BaseSQLClient):
                 "instance_name": "",
                 "version": "",
                 "domain_name": "",
-                "chain_id": "",
+                "chain_id": self.current_chain_id,
                 "server_principals": list(),
                 "database_principals": list(),
                 "server_roles": list(),
@@ -78,6 +78,7 @@ class MSSQLPwner(BaseSQLClient):
                 "database_principals_history": list()
 
             }
+            self.current_chain_id += 1
         if isinstance(self.state['servers_info'][linked_server][key], list):
             if not isinstance(value, list):
                 value = [value]
@@ -273,8 +274,6 @@ class MSSQLPwner(BaseSQLClient):
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
                                      remove_duplicates=False)
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
-            self.add_to_server_state(linked_server, "chain_id", self.current_chain_id)
-            self.current_chain_id += 1
             self.retrieve_server_information(linkable_chain_str, linkable_server)
             if linkable_server == self.state['local_hostname'] or linkable_server in state \
                     or len(state) >= self.max_recursive_links:
