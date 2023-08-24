@@ -148,7 +148,7 @@ class MSSQLPwner(BaseSQLClient):
             LOG.info(f"Architecture is set to {options.arch}")
             return options.arch
 
-        for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
+        for _, server_info in utilities.filter_servers_by_chain_str(self.state['servers_info'], linked_server).items():
             LOG.info(f"Find architecture in {server_info['chain_str']}")
             for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
                 if x64_sig in server_info['version']:
@@ -175,6 +175,19 @@ class MSSQLPwner(BaseSQLClient):
             username = server_info['server_user']
             db_user = server_info['db_user']
             LOG.info(f"{server_info['chain_id']} - {chain_str} (Server user: {username} | DB User: {db_user})")
+
+    def get_linked_server_list(self) -> None:
+        """
+        This function is responsible to return the chain list.
+        """
+        LOG.info("Linked_server_list:")
+        link_servers = []
+        for chain_str, server_info in utilities.sort_servers_by_chain_id(self.state['servers_info']).items():
+            link_name = server_info['link_name']
+            if link_name in link_servers:
+                continue
+            link_servers.append(link_name)
+            LOG.info(f"{link_name}")
 
     def retrieve_server_information(self, linked_server: str = None, linked_server_name: str = None) -> bool:
         """
@@ -593,30 +606,6 @@ class MSSQLPwner(BaseSQLClient):
                 return True
         return False
 
-    def filter_relevant_chains(self, linked_server: str) -> list:
-        """
-        This function is responsible to filter the relevant chains.
-        """
-        if self.chain_id:
-            server_info = list(self.retrieve_link_server_from_chain_id(self.chain_id).values())[0]
-            chain_str = server_info['chain_str']
-            chain_list = server_info['chain_tree']
-            if not chain_list:
-                chain_list = chain_str
-            yield chain_str, chain_list
-            return
-
-        sorted_dict = utilities.sort_servers_by_chain_id(self.state['servers_info'])
-        for chain_str, server_info in sorted_dict.items():
-            chain_list = server_info['chain_tree']
-            if not chain_list:
-                chain_list = chain_str
-
-            if chain_list[-1] != linked_server:
-                continue
-
-            yield chain_str, chain_list
-
     def add_rev2self_cmd(self, linked_server: str, cmd: str) -> None:
         """
         This function is responsible to add a command to the rev2self queue.
@@ -688,7 +677,12 @@ class MSSQLPwner(BaseSQLClient):
             LOG.error(f"{func.__name__} cannot be executed on {kwargs['linked_server']}")
             LOG.info("Trying to find a linkable server chain")
 
-        for chain_str, _ in self.filter_relevant_chains(kwargs['linked_server']):
+        if self.chain_id:
+            filtered_server = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
+        else:
+            filtered_server = utilities.filter_servers_by_link_name(self.state['servers_info'], kwargs['linked_server'])
+
+        for chain_str, _ in filtered_server.items():
             LOG.info(f"Trying to execute {func.__name__} on {chain_str}")
             kwargs['linked_server'] = chain_str
             if self.procedure_runner(func, args, **kwargs):
@@ -707,7 +701,7 @@ class MSSQLPwner(BaseSQLClient):
         ldap_filename = "LdapServer-x64.dll" if arch == 'x64' else "LdapServer-x86.dll"
         ldap_file_location = os.path.join("playbooks/custom-asm", ldap_filename)
 
-        for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
+        for _, server_info in utilities.filter_servers_by_chain_str(self.state['servers_info'], linked_server).items():
             if not server_info['adsi_providers']:
                 continue
             if adsi_provider and adsi_provider not in server_info['adsi_providers']:

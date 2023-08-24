@@ -44,5 +44,7 @@ def execute_module(options, mssql_client):
         mssql_client.retrieve_password(link_server, options.listen_port, options.adsi_provider)
     elif options.module == 'get-chain-list':
         mssql_client.get_chain_list()
+    elif options.module == 'get-link-server-list':
+        mssql_client.get_linked_server_list()
 
     return True

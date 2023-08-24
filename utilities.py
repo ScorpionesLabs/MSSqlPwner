@@ -145,6 +145,14 @@ def filter_servers_by_link_name(servers_info: dict, link_name: str):
     """
     This function is responsible to filter servers by chain id.
     """
+    filtered_servers = {key: value for key, value in servers_info.items() if value['link_name'] == link_name}
+    return sort_servers_by_chain_id(filtered_servers)
+
+
+def filter_servers_by_chain_str(servers_info: dict, link_name: str):
+    """
+    This function is responsible to filter servers by chain id.
+    """
     filtered_servers = {key: value for key, value in servers_info.items() if key == link_name}
     return sort_servers_by_chain_id(filtered_servers)
 
@@ -252,6 +260,7 @@ def generate_arg_parser():
     modules.add_parser('enumerate', help='Enumerate MSSQL server')
     set_chain = modules.add_parser('set-chain', help='Set chain ID (For interactive-mode only!)')
     modules.add_parser('get-chain-list', help='Get chain list')
+    modules.add_parser('get-link-server-list', help='Get linked server list')
     set_chain.add_argument("chain", help="Chain ID to use", type=int)
     set_link_server = modules.add_parser('set-link-server', help='Set link server (For interactive-mode only!)')
     set_link_server.add_argument("link", help="Linked server to launch queries")
