@@ -171,6 +171,8 @@ class MSSQLPwner(BaseSQLClient):
         """
             This function is responsible to retrieve the server information.
         """
+        self.add_to_server_state(linked_server, "chain_id", self.current_chain_id)
+        self.current_chain_id += 1
         if linked_server:
             server_information = self.build_chain(Queries.SERVER_INFORMATION, linked_server)
             user_information = self.build_chain(Queries.USER_INFORMATION, linked_server)
@@ -218,8 +220,6 @@ class MSSQLPwner(BaseSQLClient):
         self.add_to_server_state(linked_server, "version", server_version)
         self.add_to_server_state(linked_server, "domain_name", domain_name)
         self.add_to_server_state(linked_server, "instance_name", instance_name)
-        self.add_to_server_state(linked_server, "chain_id", self.current_chain_id)
-        self.current_chain_id += 1
 
         if trustworthy_db_list_results['is_success']:
             for db_name in trustworthy_db_list_results['results']:
