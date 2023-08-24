@@ -148,13 +148,19 @@ class MSSQLPwner(BaseSQLClient):
             LOG.info(f"Architecture is set to {options.arch}")
             return options.arch
 
-        for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
+        if self.chain_id:
+            detection_list = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
+        else:
+            detection_list = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
+        for _, server_info in detection_list.items():
             LOG.info(f"Find architecture in {server_info['chain_str']}")
             for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
                 if x64_sig in server_info['version']:
+                    LOG.info("Architecture is x64")
                     return "x64"
             for x86_sig in ["<x86>", "(X86)", "(32-bit)"]:
                 if x86_sig in server_info['version']:
+                    LOG.info("Architecture is x86")
                     return "x86"
         return ""
 
