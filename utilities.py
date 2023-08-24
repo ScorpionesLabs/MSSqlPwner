@@ -145,7 +145,7 @@ def filter_servers_by_link_name(servers_info: dict, link_name: str):
     """
     This function is responsible to filter servers by chain id.
     """
-    filtered_servers = {key: value for key, value in servers_info.items() if value['link_name'] == link_name}
+    filtered_servers = {key: value for key, value in servers_info.items() if key == link_name}
     return sort_servers_by_chain_id(filtered_servers)
 
 

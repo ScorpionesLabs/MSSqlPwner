@@ -148,11 +148,7 @@ class MSSQLPwner(BaseSQLClient):
             LOG.info(f"Architecture is set to {options.arch}")
             return options.arch
 
-        if self.chain_id:
-            detection_list = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
-        else:
-            detection_list = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
-        for _, server_info in detection_list.items():
+        for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
             LOG.info(f"Find architecture in {server_info['chain_str']}")
             for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
                 if x64_sig in server_info['version']:
@@ -709,11 +705,8 @@ class MSSQLPwner(BaseSQLClient):
             return
         ldap_filename = "LdapServer-x64.dll" if arch == 'x64' else "LdapServer-x86.dll"
         ldap_file_location = os.path.join("playbooks/custom-asm", ldap_filename)
-        if self.chain_id:
-            detection_list = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
-        else:
-            detection_list = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
-        for _, server_info in detection_list.items():
+
+        for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
             if not server_info['adsi_providers']:
                 continue
             if adsi_provider and adsi_provider not in server_info['adsi_providers']:
