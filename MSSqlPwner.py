@@ -140,10 +140,13 @@ class MSSQLPwner(BaseSQLClient):
         LOG.info(f"Chosen linked server: {linked_server}")
         return True
 
-    def detect_architecture(self, linked_server: str) -> str:
+    def detect_architecture(self, linked_server: str, options) -> str:
         """
             This function is responsible to detect the architecture of a remote server.
         """
+        if hasattr(options, "arch") and options.arch != 'autodetect':
+            return options.arch
+
         for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
             for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
                 if x64_sig in server_info['version']:
@@ -689,7 +692,7 @@ class MSSQLPwner(BaseSQLClient):
 
     def retrieve_password(self, linked_server: str, port: int, adsi_provider: str):
         is_discovered = False
-        arch = options.arch if options.arch != 'autodetect' else self.detect_architecture(linked_server)
+        arch = self.detect_architecture(linked_server, options)
         if not arch:
             LOG.error(f"Failed to detect the architecture of {linked_server}")
             return
@@ -820,7 +823,6 @@ if __name__ == '__main__':
                 if args.module == "get-chain-list":
                     mssql_client.get_chain_list()
                     continue
-
                 if not modules.execute_module(args, mssql_client):
                     break
 

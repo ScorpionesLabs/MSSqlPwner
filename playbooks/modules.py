@@ -25,7 +25,7 @@ def execute_module(options, mssql_client):
                                              linked_server=link_server)
 
     elif options.module == 'custom-asm':
-        arch_name = options.arch if options.arch != 'autodetect' else mssql_client.detect_architecture(link_server)
+        arch_name = mssql_client.detect_architecture(link_server, options)
         if not arch_name:
             LOG.error(f"Failed to detect the architecture of {link_server}")
             return False
