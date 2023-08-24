@@ -93,6 +93,19 @@ class MSSQLPwner(BaseSQLClient):
         else:
             self.state['servers_info'][linked_server][key] = value
 
+    def get_title(self, linked_server):
+        """
+            This function is responsible to get chain or linked server title.
+        """
+        if self.chain_id:
+            filtered_servers = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
+        else:
+            filtered_servers = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
+        chain_str = list(filtered_servers.keys())[0]
+        username = filtered_servers[chain_str]['server_user']
+        db_user = filtered_servers[chain_str]['db_user']
+        return f"{chain_str} (Server user: {username} | DB User: {db_user})"
+
     def is_valid_chain_id(self) -> bool:
         """
             This function is responsible to check if the given chain id is valid.
@@ -106,19 +119,6 @@ class MSSQLPwner(BaseSQLClient):
             chain_str = list(filtered_servers.keys())[0]
             LOG.info(f"Chosen chain: {chain_str} (ID: {self.chain_id})")
         return True
-
-    def get_title(self, linked_server):
-        """
-            This function is responsible to get chain or linked server title.
-        """
-        if self.chain_id:
-            filtered_servers = utilities.filter_servers_by_chain_id(self.state['servers_info'], self.chain_id)
-        else:
-            filtered_servers = utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server)
-        chain_str = list(filtered_servers.keys())[0]
-        username = filtered_servers[chain_str]['server_user']
-        db_user = filtered_servers[chain_str]['db_user']
-        return f"{chain_str} (Server user: {username} | DB User: {db_user})"
 
     def is_valid_link_server(self, linked_server: str) -> bool:
         """
