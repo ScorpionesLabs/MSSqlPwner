@@ -144,10 +144,12 @@ class MSSQLPwner(BaseSQLClient):
         """
             This function is responsible to detect the architecture of a remote server.
         """
-        if hasattr(options, "arch") or options.arch != 'autodetect':
+        if hasattr(options, "arch") and options.arch != 'autodetect':
+            LOG.info(f"Architecture is set to {options.arch}")
             return options.arch
 
         for _, server_info in utilities.filter_servers_by_link_name(self.state['servers_info'], linked_server).items():
+            LOG.info(f"Find architecture in {server_info['chain_str']}")
             for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
                 if x64_sig in server_info['version']:
                     return "x64"
