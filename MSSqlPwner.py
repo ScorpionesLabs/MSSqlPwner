@@ -360,11 +360,14 @@ class MSSQLPwner(BaseSQLClient):
         This function is responsible to check if we can impersonate as other users.
         """
         if linked_server in self.state['servers_info'].keys():
-            if self.state['servers_info'][linked_server]['database_principals']:
-                return True
+            for db_principal in self.state['servers_info'][linked_server]['database_principals']:
+                if db_principal not in self.state['servers_info'][linked_server]['database_principals_history']:
+                    return True
         if linked_server in self.state['servers_info'].keys():
             if self.state['servers_info'][linked_server]['server_principals']:
-                return True
+                for server_principal in self.state['servers_info'][linked_server]['server_principals']:
+                    if server_principal not in self.state['servers_info'][linked_server]['server_principals_history']:
+                        return True
         return False
 
     def enumerate(self) -> bool:
