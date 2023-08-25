@@ -297,7 +297,7 @@ class MSSQLPwner(BaseSQLClient):
             if not self.retrieve_server_information(linkable_chain_str, linkable_server):
                 del self.state['servers_info'][linkable_chain_str]
                 continue
-                
+
             if linkable_server == self.state['local_hostname'] or linkable_server in state \
                     or len(state) >= self.max_recursive_links:
                 continue
@@ -829,7 +829,7 @@ if __name__ == '__main__':
                     continue
 
                 if not modules.execute_module(args, mssql_client):
-                    break
+                    continue
 
             except KeyboardInterrupt:
                 break

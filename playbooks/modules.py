@@ -18,16 +18,25 @@ def execute_module(options, mssql_client):
         return True
 
     elif options.module == 'exec':
+        if not options.command:
+            LOG.error("Command is required for exec module")
+            return False
         mssql_client.procedure_chain_builder(mssql_client.execute_procedure,
                                              [options.command_execution_method, options.command],
                                              linked_server=link_server)
     elif options.module == 'ntlm-relay':
+        if not options.smb_server:
+            LOG.error("SMB server is required for ntlm-relay module")
+            return False
         share = fr"\\{options.smb_server}\{utilities.generate_string()}\{utilities.generate_string()}"
         mssql_client.procedure_chain_builder(mssql_client.execute_procedure,
                                              [options.relay_method, share],
                                              linked_server=link_server)
 
     elif options.module == 'custom-asm':
+        if not options.command:
+            LOG.error("Command is required for custom-asm module")
+            return False
         arch_name = mssql_client.detect_architecture(link_server, options)
         if not arch_name:
             LOG.error(f"Failed to detect the architecture of {link_server}")
@@ -39,6 +48,9 @@ def execute_module(options, mssql_client):
                                              linked_server=link_server)
 
     elif options.module == 'direct_query':
+        if not options.query:
+            LOG.error("Query is required for direct_query module")
+            return False
         mssql_client.procedure_chain_builder(mssql_client.direct_query,
                                              [options.query],
                                              linked_server=link_server, method=options.method)
