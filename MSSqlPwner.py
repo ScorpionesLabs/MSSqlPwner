@@ -449,11 +449,17 @@ class MSSQLPwner(BaseSQLClient):
         """
         This function is responsible to execute a procedure on a linked server.
         """
-        if not self.reconfigure_procedure("show advanced options", linked_server, required_status=True):
-            return False
+        is_procedure_accessible = self.build_chain(
+            Queries.IS_PROCEDURE_ACCESSIBLE.format(procedure=procedure),
+            linked_server)
 
-        if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
-            return False
+        if (not is_procedure_accessible['is_success']) or \
+                is_procedure_accessible['results'][0]['is_accessible'] != 'True':
+            if not self.reconfigure_procedure("show advanced options", linked_server, required_status=True):
+                return False
+
+            if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
+                return False
 
         if procedure == 'sp_oacreate':
             procedure_query = Queries.SP_OAMETHOD.format(command=command)

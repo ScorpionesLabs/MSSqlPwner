@@ -11,6 +11,7 @@ GET_LINKABLE_SERVERS = "EXEC sp_linkedservers;"
 OPENQUERY = "SELECT * FROM OPENQUERY(\"{linked_server}\", '{query}');"
 EXEC_AT = "EXEC ('{query}') AT \"{linked_server}\";"
 SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, '{command}';"
+IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure}}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
 PROCEDURE_EXECUTION = "DECLARE @x AS VARCHAR(100)='{procedure}'; EXEC @x '{command}';"
 
 # General queries
