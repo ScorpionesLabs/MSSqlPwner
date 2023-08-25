@@ -458,10 +458,11 @@ class MSSQLPwner(BaseSQLClient):
 
         if (not is_procedure_accessible['is_success']) or \
                 is_procedure_accessible['results'][0]['is_accessible'] != 'True':
-            if not self.reconfigure_procedure("show advanced options", linked_server, required_status=True):
-                return False
+            LOG.error(f"{procedure} is not accessible")
+            return False
 
-            if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
+        if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
+            if not self.reconfigure_procedure("show advanced options", linked_server, required_status=True):
                 return False
 
         if procedure == 'sp_oacreate':

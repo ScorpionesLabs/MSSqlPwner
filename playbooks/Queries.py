@@ -11,7 +11,6 @@ GET_LINKABLE_SERVERS = "EXEC sp_linkedservers;"
 OPENQUERY = "SELECT * FROM OPENQUERY(\"{linked_server}\", '{query}');"
 EXEC_AT = "EXEC ('{query}') AT \"{linked_server}\";"
 SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, '{command}';"
-IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
 PROCEDURE_EXECUTION = "EXEC {procedure} '{command}';"
 
 # General queries
@@ -21,6 +20,7 @@ TRUSTWORTHY_DB_LIST = "SELECT name AS 'name' FROM sys.databases WHERE is_trustwo
 
 # Permission checks
 IS_UPDATE_SP_CONFIGURE_ALLOWED = "SELECT IIF(IS_SRVROLEMEMBER('sysadmin', SYSTEM_USER) = 1 OR HAS_PERMS_BY_NAME('sp_configure', 'OBJECT', 'ALTER', SYSTEM_USER) = 1, 'True', 'False') AS [CanChangeConfiguration];"
+IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
 IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure}') = 1 THEN 'True' ELSE 'False' END AS [procedure];"
 
 # Configuration queries
