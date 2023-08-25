@@ -248,10 +248,16 @@ class MSSQLPwner(BaseSQLClient):
 
         if server_principals['is_success']:
             for server_principal in server_principals['results']:
+                if server_principal['permission_name'] != 'IMPERSONATE':
+                    if self.state['server_user'] not in self.high_privileged_server_groups:
+                        continue
                 self.add_to_server_state(linked_server, "server_principals", server_principal['username'])
 
         if db_principals['is_success']:
             for db_principal in db_principals['results']:
+                if db_principal['permission_name'] != 'IMPERSONATE':
+                    if self.state['db_user'] not in self.high_privileged_database_groups:
+                        continue
                 self.add_to_server_state(linked_server, "database_principals", db_principal['username'])
         return True
 
@@ -773,9 +779,9 @@ if __name__ == '__main__':
     if options.module == "interactive":
         chosen_chain_id = options.chain_id
         chosen_link_server = options.link_server
+
         while True:
             try:
-                parser.usage = argparse.SUPPRESS
                 chosen_link_server = chosen_link_server if chosen_link_server else mssql_client.state['local_hostname']
                 title = mssql_client.get_title(chosen_link_server)
 

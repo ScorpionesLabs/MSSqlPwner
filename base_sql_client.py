@@ -22,6 +22,7 @@ class BaseSQLClient(object):
         """
         This function is responsible to connect to the server using the given credentials.
         """
+
         self.domain = domain.upper()
         self.ms_sql.connect()
         ret_val = False

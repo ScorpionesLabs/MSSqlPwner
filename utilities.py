@@ -1,6 +1,8 @@
 import os
 import re
 import json
+import string
+import random
 import argparse
 import binascii
 import hashlib
@@ -25,6 +27,13 @@ def decode_results(list_of_results: list) -> [dict, list]:
             if hasattr(type(value), 'decode'):
                 list_of_results[key] = value.decode()
         return list_of_results
+
+
+def generate_string(size=6, chars=string.ascii_uppercase + string.ascii_lowercase) -> str:
+    """
+    This function is responsible to generate a random string.
+    """
+    return ''.join(random.choice(chars) for _ in range(size))
 
 
 def convert_state(state: dict) -> [dict]:
@@ -205,6 +214,7 @@ def calculate_sha512_hash(file_path: str) -> str:
 
 
 class MyArgumentParser(argparse.ArgumentParser):
+    # Suppress the default error message
     def exit(self, status=0, message=None):
         return
 
@@ -270,7 +280,7 @@ def generate_arg_parser():
     command_execution.add_argument("command", help="Command to execute")
 
     ntlm_relay = modules.add_parser('ntlm-relay', help='Steal NetNTLM hash / Relay attack')
-    ntlm_relay.add_argument("smb_server", help="Steal NetNTLM hash / Relay attack (Example: \\\\192.168.1.1\\test)")
+    ntlm_relay.add_argument("smb_server", help="Steal NetNTLM hash / Relay attack (Example: 192.168.1.1)")
     ntlm_relay.add_argument("-relay-method", choices=['xp_dirtree', 'xp_subdirs', 'xp_fileexist'],
                             default='xp_fileexist')
 

