@@ -282,7 +282,7 @@ def generate_arg_parser():
     ntlm_relay = modules.add_parser('ntlm-relay', help='Steal NetNTLM hash / Relay attack')
     ntlm_relay.add_argument("smb_server", help="Steal NetNTLM hash / Relay attack (Example: 192.168.1.1)")
     ntlm_relay.add_argument("-relay-method", choices=['xp_dirtree', 'xp_subdirs', 'xp_fileexist'],
-                            default='xp_fileexist')
+                            default='xp_dirtree')
 
     custom_asm = modules.add_parser('custom-asm', help='Execute procedures using custom assembly')
     custom_asm.add_argument("-arch", choices=['x86', 'x64', 'autodetect'], default='autodetect')
