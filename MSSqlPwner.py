@@ -749,8 +749,8 @@ class MSSQLPwner(BaseSQLClient):
         if not is_discovered:
             if adsi_provider:
                 LOG.error(f"Failed to access {adsi_provider} ADSI provider on {linked_server}")
-            else:
-                LOG.error(f"There is no ADSI providers on {linked_server}")
+                return
+            LOG.error(f"There is no ADSI providers on {linked_server}")
 
 
 if __name__ == '__main__':

