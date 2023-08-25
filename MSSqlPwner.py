@@ -294,7 +294,10 @@ class MSSQLPwner(BaseSQLClient):
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
                                      remove_duplicates=False)
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
-            self.retrieve_server_information(linkable_chain_str, linkable_server)
+            if not self.retrieve_server_information(linkable_chain_str, linkable_server):
+                del self.state['servers_info'][linkable_chain_str]
+                continue
+                
             if linkable_server == self.state['local_hostname'] or linkable_server in state \
                     or len(state) >= self.max_recursive_links:
                 continue
