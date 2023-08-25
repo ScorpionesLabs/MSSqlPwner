@@ -448,7 +448,7 @@ class MSSQLPwner(BaseSQLClient):
                 LOG.warning(f"Failed to enable {procedure}")
         return True
 
-    def execute_procedure(self, procedure: str, command: str, linked_server: str) -> bool:
+    def execute_procedure(self, procedure: str, command: str, linked_server: str, reconfigure: bool = False) -> bool:
         """
         This function is responsible to execute a procedure on a linked server.
         """
@@ -461,8 +461,11 @@ class MSSQLPwner(BaseSQLClient):
             LOG.error(f"{procedure} is not accessible")
             return False
 
-        if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
+        if reconfigure:
             if not self.reconfigure_procedure("show advanced options", linked_server, required_status=True):
+                return False
+
+            if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
                 return False
 
         if procedure == 'sp_oacreate':
@@ -473,6 +476,7 @@ class MSSQLPwner(BaseSQLClient):
         results = self.build_chain(procedure_query, linked_server, method="exec_at")
         if not results['is_success']:
             LOG.warning(f"Failed to execute {procedure} on {linked_server}")
+            self.execute_procedure(procedure, command, linked_server, reconfigure=True)
             return False
 
         LOG.info(f"The {procedure} command executed successfully on {linked_server}")
