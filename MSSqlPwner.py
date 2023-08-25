@@ -249,14 +249,14 @@ class MSSQLPwner(BaseSQLClient):
         if server_principals['is_success']:
             for server_principal in server_principals['results']:
                 if server_principal['permission_name'] != 'IMPERSONATE':
-                    if self.state['server_user'] not in self.high_privileged_server_groups:
+                    if self.state[linked_server]['server_user'] not in self.high_privileged_server_groups:
                         continue
                 self.add_to_server_state(linked_server, "server_principals", server_principal['username'])
 
         if db_principals['is_success']:
             for db_principal in db_principals['results']:
                 if db_principal['permission_name'] != 'IMPERSONATE':
-                    if self.state['db_user'] not in self.high_privileged_database_groups:
+                    if self.state[linked_server]['db_user'] not in self.high_privileged_database_groups:
                         continue
                 self.add_to_server_state(linked_server, "database_principals", db_principal['username'])
         return True
