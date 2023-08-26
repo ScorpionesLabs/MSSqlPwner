@@ -9,7 +9,7 @@ def execute_module(options, mssql_client):
     if options.chain_id:
         if not mssql_client.is_valid_chain_id():
             return False
-        link_server = list(mssql_client.retrieve_link_server_from_chain_id(options.chain_id).keys())[0]
+        link_server = mssql_client.filter_server_by_chain_id(options.chain_id)[0]['chain_str']
 
     elif not mssql_client.is_valid_link_server(link_server):
         return False
@@ -56,7 +56,7 @@ def execute_module(options, mssql_client):
                                              linked_server=link_server, method=options.method)
 
     elif options.module == 'retrieve-password':
-        mssql_client.retrieve_password(link_server, options.listen_port, options.adsi_provider)
+        mssql_client.retrieve_password(link_server, options.listen_port, options.adsi_provider, options)
     elif options.module == 'get-chain-list':
         mssql_client.get_chain_list()
     elif options.module == 'get-link-server-list':

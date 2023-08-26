@@ -15,8 +15,8 @@ class BaseSQLClient(object):
         self.debug = options.debug
         self.options = options
         self.domain = None
-        self.high_privileged_server_groups = ['sysadmin']
-        self.high_privileged_database_groups = ['db_owner']
+        self.high_privileged_server_roles = ['sysadmin']
+        self.high_privileged_database_roles = ['db_owner']
 
     def connect(self, username: str, password: str, domain: str) -> bool:
         """

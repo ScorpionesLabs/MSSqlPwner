@@ -79,9 +79,12 @@ def retrieve_procedure_custom_name(procedure_name: str) -> str:
         sp_oacreate -> Ole Automation Procedures
         xp_cmdshell -> xp_cmdshell
     """
+    custom_names = {
+        "sp_oacreate": "Ole Automation Procedures"
+    }
 
-    if procedure_name == "sp_oacreate":
-        return "Ole Automation Procedures"
+    if procedure_name in custom_names.keys():
+        return custom_names[procedure_name]
     return procedure_name
 
 
@@ -132,7 +135,7 @@ def print_state(state: dict) -> None:
         LOG.info("-" * 50)
 
 
-def is_privileged(current_groups: list, privileged_groups: list) -> bool:
+def is_string_in_lists(current_groups: list, privileged_groups: list) -> bool:
     """
     This function is responsible to check if the current user is a member of the privileged groups.
     """
@@ -142,36 +145,50 @@ def is_privileged(current_groups: list, privileged_groups: list) -> bool:
     return False
 
 
-def filter_servers_by_chain_id(servers_info: dict, chain_id: int):
+def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
     """
-    This function is responsible to filter servers by chain id.
+    This function is responsible to return filtered subdict from dict.
+    for example
+    {
+        "a": {
+                "category": "server",
+                "data": "aaa",
+                ...
+            },
+        "b": {
+            "server": "instance",
+            "data": "bbb",
+            ...
+        },
+        "c": {
+            "server": "server",
+            "data": "ccc",
+            ...
+        }
+    }
+    filter_subdict_by_key(dict_with_dict_values, "server", "a server") will return
+    [
+    {
+        "category": "server",
+        "data": "aaa",
+        ...
+    },
+    "c": {
+        "server": "server",
+        "data": "ccc",
+        ...
+    }
+
+    ]
     """
-    filtered_servers = {key: value for key, value in servers_info.items() if value['chain_id'] == chain_id}
-    return filtered_servers
+    return [v for k, v in dict_with_dict_values.items() if v[key] == value]
 
 
-def filter_servers_by_link_name(servers_info: dict, link_name: str):
+def sort_subdict_by_key(dict_with_dict_values: dict, key: str) -> list:
     """
-    This function is responsible to filter servers by chain id.
+    This function is responsible to sort subdict from dict.
     """
-    filtered_servers = {key: value for key, value in servers_info.items() if value['link_name'] == link_name}
-    return sort_servers_by_chain_id(filtered_servers)
-
-
-def filter_servers_by_chain_str(servers_info: dict, link_name: str):
-    """
-    This function is responsible to filter servers by chain id.
-    """
-    filtered_servers = {key: value for key, value in servers_info.items() if key == link_name}
-    return sort_servers_by_chain_id(filtered_servers)
-
-
-def sort_servers_by_chain_id(servers_info):
-    sorted_servers = dict(sorted(
-        servers_info.items(),
-        key=lambda item: item[1]['chain_id']  # Sort by chain_id
-    ))
-    return sorted_servers
+    return [v for k, v in sorted(dict_with_dict_values.items(), key=lambda x: x[1][key])]
 
 
 def build_openquery(linked_server: str, query: str) -> str:
