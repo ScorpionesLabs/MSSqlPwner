@@ -29,6 +29,7 @@ This tool is designed for security professionals and researchers for testing pur
 - `enumerate`: enumerate the linked servers and the chains.
 - `get-chain-list` get the list of the chains.
 - `get-link-server-list` get the list of the linked servers.
+- `get-rev2self-queries` get the list of the queries that can be used to revert to self.
 
 2. Command Execution: Execute commands using the following functions:
 - `xp_cmdshell` Execute commands using `xp_cmdshell` on local server or on linked servers
