@@ -522,7 +522,8 @@ class MSSQLPwner(BaseSQLClient):
         results = self.build_chain(procedure_query, linked_server, method="exec_at")
         if not results['is_success']:
             LOG.warning(f"Failed to execute {procedure} on {linked_server}")
-            self.execute_procedure(procedure, command, linked_server, reconfigure=True)
+            if not reconfigure:
+                self.execute_procedure(procedure, command, linked_server, reconfigure=True)
             return False
 
         LOG.info(f"The {procedure} command executed successfully on {linked_server}")
