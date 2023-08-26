@@ -29,7 +29,10 @@ This tool is designed for security professionals and researchers for testing pur
 - `enumerate`: enumerate the linked servers and the chains.
 - `get-chain-list` get the list of the chains.
 - `get-link-server-list` get the list of the linked servers.
-- `get-rev2self-queries` get the list of the queries that can be used to revert to self.
+- `set-chain` Set chain ID (For interactive-mode only!)
+- `set-link-server` Set link server (For interactive-mode only!)
+- `get-rev2self-queries` retrieve queries to revert to SELF (For interactive-mode only!).
+- `rev2self` revert to SELF (For interactive-mode only!).
 
 2. Command Execution: Execute commands using the following functions:
 - `xp_cmdshell` Execute commands using `xp_cmdshell` on local server or on linked servers
