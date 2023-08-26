@@ -15,7 +15,7 @@ PROCEDURE_EXECUTION = "EXEC {procedure} '{command}';"
 
 # General queries
 USER_INFORMATION = "SELECT USER_NAME() as db_user, SYSTEM_USER as server_user;"
-SERVER_INFORMATION = "d"
+SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domain_name, @@VERSION as server_version, @@servicename as instance_name;"
 TRUSTWORTHY_DB_LIST = "SELECT name AS 'name' FROM sys.databases WHERE is_trustworthy_on = 1;"
 
 # Permission checks
