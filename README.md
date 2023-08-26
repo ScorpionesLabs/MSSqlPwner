@@ -27,6 +27,8 @@ This tool is designed for security professionals and researchers for testing pur
 1. Utilities:
 - `interactive`: allow to use the tool interactively with live execution.
 - `enumerate`: enumerate the linked servers and the chains.
+- `get-chain-list` get the list of the chains.
+- `get-link-server-list` get the list of the linked servers.
 
 2. Command Execution: Execute commands using the following functions:
 - `xp_cmdshell` Execute commands using `xp_cmdshell` on local server or on linked servers
