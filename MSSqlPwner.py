@@ -675,8 +675,8 @@ class MSSQLPwner(BaseSQLClient):
         LOG.info("Reverting to self..")
         for linked_server, query_list in self.rev2self.items():
             for query in reversed(query_list):
-                if self.custom_sql_query("".join(query), linked_server)['is_success']:
-                    LOG.info(f"Successfully reverted to self on {linked_server}")
+                self.custom_sql_query(query, linked_server)
+            LOG.info(f"Successfully reverted to self on {linked_server}")
         self.rev2self.clear()
 
     def procedure_runner(self, func: Callable, args: list, **kwargs) -> bool:
