@@ -1,0 +1,17 @@
+{
+  "link_name": "Linked Server Name",
+  "hostname": "Hostname",
+  "chain_str": "Chain",
+  "chain_id": "Chain ID",
+  "db_user": "Database User",
+  "server_user": "Server User",
+  "instance_name": "Instance Name",
+  "version": "Version",
+  "domain_name": "Domain Name",
+  "server_principals": "Our user can impersonate these server principals",
+  "database_principals": "Our user can impersonate these database principals",
+  "server_roles": "Our use is member of these server roles",
+  "database_roles": "Our user is member of these database roles",
+  "trustworthy_db_list": "These databases are trustworthy",
+  "adsi_providers": "These ADSI providers can retrieve passwords for us"
+}

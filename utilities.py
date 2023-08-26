@@ -1,6 +1,12 @@
+import os
+import re
+import json
+import string
+import random
 import argparse
 import binascii
 import hashlib
+from impacket import LOG
 from playbooks import Queries
 
 
@@ -21,6 +27,32 @@ def decode_results(list_of_results: list) -> [dict, list]:
             if hasattr(type(value), 'decode'):
                 list_of_results[key] = value.decode()
         return list_of_results
+
+
+def generate_string(size=6, chars=string.ascii_uppercase + string.ascii_lowercase) -> str:
+    """
+    This function is responsible to generate a random string.
+    """
+    return ''.join(random.choice(chars) for _ in range(size))
+
+
+def convert_state(state: dict) -> [dict]:
+    """
+    This function is responsible to convert the state to a serializable object.
+    """
+    if isinstance(state, list):
+        container = []
+        for row in state:
+            container.append(convert_state(row))
+        return container
+    elif isinstance(state, set):
+        return list(state)
+
+    elif state and isinstance(state, dict):
+        for key, value in state.items():
+            state[key] = convert_state(value)
+        return state
+    return state
 
 
 def hexlify_file(file_location: str) -> str:
@@ -47,9 +79,12 @@ def retrieve_procedure_custom_name(procedure_name: str) -> str:
         sp_oacreate -> Ole Automation Procedures
         xp_cmdshell -> xp_cmdshell
     """
+    custom_names = {
+        "sp_oacreate": "Ole Automation Procedures"
+    }
 
-    if procedure_name == "sp_oacreate":
-        return "Ole Automation Procedures"
+    if procedure_name in custom_names.keys():
+        return custom_names[procedure_name]
     return procedure_name
 
 
@@ -58,6 +93,102 @@ def escape_single_quotes(query: str) -> str:
     This function is responsible to escape single quotes.
     """
     return query.replace("'", "''")
+
+
+def store_state(filename, state) -> None:
+    """
+    This function is responsible to store the current state.
+    """
+    state = convert_state(state)
+    json.dump(state, open(filename, 'w'), indent=4)
+    LOG.info("Enumeration completed successfully")
+    LOG.info("Saving state to file")
+
+
+def receive_answer(question: str, possible_answers: list, true_result_answer: str) -> bool:
+    """
+    This function is responsible to receive an answer from the user.
+    """
+    while True:
+        answer = input(f"{question} ({'/'.join(possible_answers)}): ").lower()
+        if answer in possible_answers:
+            return answer == true_result_answer
+        LOG.error(f"Invalid answer, only the following answers are allowed: {','.join(possible_answers)}")
+
+
+def print_state(state: dict) -> None:
+    """
+    This function is responsible to print the last enumeration from the stored state.
+    """
+    LOG.info("Linkable servers:")
+    translation = json.load(open(os.path.join("./", "playbooks", "translation.json")))
+    for _, server_info in state['servers_info'].items():
+        for translation_key, translation_value in translation.items():
+            if translation_key in server_info.keys():
+                val = server_info[translation_key]
+                if not val:
+                    continue
+                if isinstance(val, list):
+                    val = ', '.join(val)
+
+                LOG.info(f"{translation_value}: {str(val).strip()}")
+        LOG.info("-" * 50)
+
+
+def is_string_in_lists(current_groups: list, privileged_groups: list) -> bool:
+    """
+    This function is responsible to check if the current user is a member of the privileged groups.
+    """
+    for group in current_groups:
+        if group in privileged_groups:
+            return True
+    return False
+
+
+def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
+    """
+    This function is responsible to return filtered subdict from dict.
+    for example
+    {
+        "a": {
+                "category": "server",
+                "data": "aaa",
+                ...
+            },
+        "b": {
+            "server": "instance",
+            "data": "bbb",
+            ...
+        },
+        "c": {
+            "server": "server",
+            "data": "ccc",
+            ...
+        }
+    }
+    filter_subdict_by_key(dict_with_dict_values, "server", "a server") will return
+    [
+    {
+        "category": "server",
+        "data": "aaa",
+        ...
+    },
+    "c": {
+        "server": "server",
+        "data": "ccc",
+        ...
+    }
+
+    ]
+    """
+    return [v for k, v in dict_with_dict_values.items() if v[key] == value]
+
+
+def sort_subdict_by_key(dict_with_dict_values: dict, key: str) -> list:
+    """
+    This function is responsible to sort subdict from dict.
+    """
+    return [v for k, v in sorted(dict_with_dict_values.items(), key=lambda x: x[1][key])]
 
 
 def build_openquery(linked_server: str, query: str) -> str:
@@ -99,17 +230,35 @@ def calculate_sha512_hash(file_path: str) -> str:
     return f"0x{sha512_hash.hexdigest()}"
 
 
+class MyArgumentParser(argparse.ArgumentParser):
+    # Suppress the default error message
+    def exit(self, status=0, message=None):
+        return
+
+
+def split_exclude_quotes(s):
+    # Match quoted strings and non-quoted parts
+    pattern = r'"([^"]*)"|\'([^\']*)\'|([^"\' ]+)'
+    parts = re.findall(pattern, s)
+
+    # Join non-empty parts and return
+    return [p[0] or p[1] or p[2] for p in parts]
+
+
 def generate_arg_parser():
     """
     This function is respponsible to manage the arguments passed to the script.
     """
-    parser = argparse.ArgumentParser(add_help=True, description="TDS client implementation (SSL supported).")
+
+    parser = MyArgumentParser(add_help=True, description="TDS client implementation (SSL supported).")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
     parser.add_argument('-windows-auth', action='store_true', default=False, help='whether or not to use Windows '
                                                                                   'Authentication (default False)')
+
+    parser.add_argument('-no-state', action='store_true', default=False, help='whether or not to load existing state ')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -131,22 +280,30 @@ def generate_arg_parser():
     module.add_argument("-link-server", help="Linked server to launch queries", default=None)
     module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=4,
                         type=int)
+    module.add_argument("-chain-id", help="Chain ID to use", default=None, type=int)
+    module.add_argument("-auto-yes", help="Auto answer yes to all questions", action='store_true', default=False)
 
     modules = parser.add_subparsers(title='Modules', dest='module')
     modules.add_parser('enumerate', help='Enumerate MSSQL server')
+    set_chain = modules.add_parser('set-chain', help='Set chain ID (For interactive-mode only!)')
+    modules.add_parser('get-chain-list', help='Get chain list')
+    modules.add_parser('get-link-server-list', help='Get linked server list')
+    set_chain.add_argument("chain", help="Chain ID to use", type=int)
+    set_link_server = modules.add_parser('set-link-server', help='Set link server (For interactive-mode only!)')
+    set_link_server.add_argument("link", help="Linked server to launch queries")
     command_execution = modules.add_parser('exec', help='Command to execute')
     command_execution.add_argument("-command-execution-method", choices=['xp_cmdshell', 'sp_oacreate'],
                                    default='xp_cmdshell')
     command_execution.add_argument("command", help="Command to execute")
 
     ntlm_relay = modules.add_parser('ntlm-relay', help='Steal NetNTLM hash / Relay attack')
-    ntlm_relay.add_argument("smb_server", help="Steal NetNTLM hash / Relay attack (Example: \\\\192.168.1.1\\test)")
+    ntlm_relay.add_argument("smb_server", help="Steal NetNTLM hash / Relay attack (Example: 192.168.1.1)")
     ntlm_relay.add_argument("-relay-method", choices=['xp_dirtree', 'xp_subdirs', 'xp_fileexist'],
-                            default='xp_fileexist')
+                            default='xp_dirtree')
 
     custom_asm = modules.add_parser('custom-asm', help='Execute procedures using custom assembly')
-    custom_asm.add_argument("-arch", choices=['x86', 'x64'], default='x64')
-    custom_asm.add_argument("-procedure_name", choices=['execute_command', 'run_query', 'run_query_system_service'],
+    custom_asm.add_argument("-arch", choices=['x86', 'x64', 'autodetect'], default='autodetect')
+    custom_asm.add_argument("-procedure-name", choices=['execute_command', 'run_query', 'run_query_system_service'],
                             default='execute_command')
     custom_asm.add_argument("command", help="Command to execute")
 
@@ -156,9 +313,11 @@ def generate_arg_parser():
 
     retrieve_passwords = modules.add_parser('retrieve-password', help='Retrieve password from ADSI servers')
     retrieve_passwords.add_argument("-listen-port",
-                                    help="Port to listen on (default 389)", type=int, default=1489)
-    retrieve_passwords.add_argument("-adsi-provider", help="Password to be retrieved from ADSI provider "
+                                    help="Port to listen on (default 1489)", type=int, default=1489)
+    retrieve_passwords.add_argument("-adsi-provider", help="choose ADSI provider "
                                                            "(if not defined, it will choose automatically)",
                                     default=None)
-    retrieve_passwords.add_argument("-arch", choices=['x86', 'x64'], default='x64')
-    return parser
+    retrieve_passwords.add_argument("-arch", choices=['x86', 'x64', 'autodetect'], default='autodetect')
+    modules.add_parser('interactive', help='Interactive Mode')
+
+    return parser, list(modules.choices.keys())

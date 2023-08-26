@@ -15,11 +15,14 @@ class BaseSQLClient(object):
         self.debug = options.debug
         self.options = options
         self.domain = None
+        self.high_privileged_server_roles = ['sysadmin']
+        self.high_privileged_database_roles = ['db_owner']
 
     def connect(self, username: str, password: str, domain: str) -> bool:
         """
         This function is responsible to connect to the server using the given credentials.
         """
+
         self.domain = domain.upper()
         self.ms_sql.connect()
         ret_val = False
@@ -42,11 +45,11 @@ class BaseSQLClient(object):
         This function is responsible to execute the given query.
         """
         self.ms_sql.sendTDS(TDS_SQL_BATCH, (query + '\r\n').encode('utf-16le'))
+        if self.debug:
+            LOG.info(f"Query: {query}")
         if wait:
             tds_data = self.ms_sql.recvTDS()
             self.ms_sql.replies = self.ms_sql.parseReply(tds_data['Data'], False)
-            if self.debug:
-                LOG.info(f"Query: {query}")
             return self.parse_logs(decode_results=decode_results, print_results=print_results)
 
         else:
@@ -70,6 +73,8 @@ class BaseSQLClient(object):
                     return utilities.return_result(False, reply, results)
                 elif key['TokenType'] == tds.TDS_INFO_TOKEN:
                     reply = f"Line {key['LineNumber']}: {key['MsgText'].decode('utf-16le')}"
+                    if 'Deferred prepare could not be completed' in str(reply):
+                        return utilities.return_result(False, reply, [])
                     return utilities.return_result(True, reply, results)
 
                 elif key['TokenType'] == tds.TDS_LOGINACK_TOKEN:

