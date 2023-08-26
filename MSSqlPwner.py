@@ -677,7 +677,7 @@ class MSSQLPwner(BaseSQLClient):
             for query in reversed(query_list):
                 if self.custom_sql_query("".join(query), linked_server)['is_success']:
                     LOG.info(f"Successfully reverted to self on {linked_server}")
-            self.rev2self[linked_server].clear()
+        self.rev2self.clear()
 
     def procedure_runner(self, func: Callable, args: list, **kwargs) -> bool:
         """
@@ -793,6 +793,14 @@ class MSSQLPwner(BaseSQLClient):
                 LOG.error(f"Failed to access {adsi_provider} ADSI provider on {linked_server}")
                 return
             LOG.error(f"There is no ADSI providers on {linked_server}")
+
+    def get_rev2self_queries(self):
+        """
+        This function is responsible to retrieve the commands that are needed to revert to self.
+        """
+        for linked_server, queries in self.rev2self.items():
+            for query in queries:
+                LOG.info(f"{linked_server}: {query}")
 
 
 def main():
