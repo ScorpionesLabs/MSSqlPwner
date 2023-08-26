@@ -515,11 +515,11 @@ class MSSQLPwner(BaseSQLClient):
         if not results['is_success']:
             LOG.warning(f"Failed to execute {procedure} on {linked_server}")
             if not reconfigure:
-                self.execute_procedure(procedure, command, linked_server, reconfigure=True)
+                return self.execute_procedure(procedure, command, linked_server, reconfigure=True)
             return False
 
         LOG.info(f"The {procedure} command executed successfully on {linked_server}")
-        if not results['is_success']:
+        if not results['results']:
             LOG.warning("Failed to resolve the results")
             return results['is_success']
 
