@@ -61,5 +61,7 @@ def execute_module(options, mssql_client):
         mssql_client.get_chain_list()
     elif options.module == 'get-link-server-list':
         mssql_client.get_linked_server_list()
+    elif options.module == 'rev2self':
+        mssql_client.rev2self_cmd()
 
     return True
