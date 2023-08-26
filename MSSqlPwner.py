@@ -262,7 +262,6 @@ class MSSQLPwner(BaseSQLClient):
         instance_name = dict_results['server_information'][0]['instance_name']
 
         if not linked_server:
-            hostname = f"{hostname.split('.')[0]}.{self.domain}"
             self.state['local_hostname'] = hostname
             LOG.info(f"Discovered hostname: {hostname}")
             linked_server = hostname
