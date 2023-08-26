@@ -207,11 +207,17 @@ class MSSQLPwner(BaseSQLClient):
     def is_privileged_server_user(self, linked_server: str) -> bool:
         if self.state['servers_info'][linked_server]['server_user'] in self.high_privileged_server_roles:
             return True
+        if utilities.is_string_in_lists(self.state['servers_info'][linked_server]['server_principals'],
+                                        self.high_privileged_server_principals):
+            return True
         return utilities.is_string_in_lists(self.state['servers_info'][linked_server]['server_roles'],
                                             self.high_privileged_server_roles)
 
     def is_privileged_db_user(self, linked_server: str) -> bool:
         if self.state['servers_info'][linked_server]['db_user'] in self.high_privileged_server_roles:
+            return True
+        if utilities.is_string_in_lists(self.state['servers_info'][linked_server]['database_principals'],
+                                        self.high_privileged_database_principals):
             return True
         return utilities.is_string_in_lists(self.state['servers_info'][linked_server]['database_roles'],
                                             self.high_privileged_database_roles)
