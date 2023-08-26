@@ -392,7 +392,7 @@ class MSSQLPwner(BaseSQLClient):
             EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
         """
         query = f"{self.execute_as}{query}"
-        if linked_server == self.state['local_hostname'] or not self.state['local_hostname']:
+        if not self.state['local_hostname'] or linked_server == self.state['local_hostname']:
             return query
         if method == "blind_OpenQuery":
             query = f"SELECT 1; {query}"
@@ -407,7 +407,7 @@ class MSSQLPwner(BaseSQLClient):
         """
          This function is responsible to build the query chain for the given query and method.
         """
-        query = self.generate_query(linked_server, query, method)
+        query = self.generate_query(query, linked_server, method)
         return self.custom_sql_query(query, print_results=print_results, decode_results=decode_results, wait=wait)
 
     def can_impersonate(self, linked_server: str) -> bool:
@@ -666,19 +666,17 @@ class MSSQLPwner(BaseSQLClient):
             self.rev2self[linked_server] = []
         self.rev2self[linked_server].append(self.generate_query(query, linked_server, method="exec_at"))
 
-    def rev2self_cmd(self) -> None:
+    def call_rev2self(self) -> None:
         """
         This function is responsible to revert the database to the previous state.
         """
-        self.execute_as = ""
         if not self.rev2self:
             return
         LOG.info("Reverting to self..")
-        for linked_server, command in self.rev2self.items():
-            if not command:
-                continue
-            if self.build_chain("".join(command), linked_server, "exec_at")['is_success']:
-                LOG.info(f"Successfully reverted to self on {linked_server}")
+        for linked_server, query_list in self.rev2self.items():
+            for query in query_list:
+                if self.custom_sql_query("".join(query), linked_server)['is_success']:
+                    LOG.info(f"Successfully reverted to self on {linked_server}")
             self.rev2self[linked_server].clear()
 
     def procedure_runner(self, func: Callable, args: list, **kwargs) -> bool:
@@ -883,7 +881,7 @@ def main():
     else:
         modules.execute_module(options, mssql_client)
 
-    mssql_client.rev2self_cmd()
+    mssql_client.call_rev2self()
     mssql_client.disconnect()
 
 
