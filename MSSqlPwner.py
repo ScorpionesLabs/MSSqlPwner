@@ -392,7 +392,7 @@ class MSSQLPwner(BaseSQLClient):
             EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
         """
         query = f"{self.execute_as}{query}"
-        if linked_server == self.state['local_hostname']:
+        if linked_server == self.state['local_hostname'] or not self.state['local_hostname']:
             return query
         if method == "blind_OpenQuery":
             query = f"SELECT 1; {query}"
