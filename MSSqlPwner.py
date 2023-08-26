@@ -674,7 +674,7 @@ class MSSQLPwner(BaseSQLClient):
             return
         LOG.info("Reverting to self..")
         for linked_server, query_list in self.rev2self.items():
-            for query in query_list:
+            for query in reversed(query_list):
                 if self.custom_sql_query("".join(query), linked_server)['is_success']:
                     LOG.info(f"Successfully reverted to self on {linked_server}")
             self.rev2self[linked_server].clear()
