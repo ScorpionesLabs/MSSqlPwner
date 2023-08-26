@@ -527,7 +527,7 @@ class MSSQLPwner(BaseSQLClient):
             return False
 
         LOG.info(f"The {procedure} command executed successfully on {linked_server}")
-        if not results['results']:
+        if not results['is_success']:
             LOG.warning("Failed to resolve the results")
             return results['is_success']
 
@@ -662,7 +662,7 @@ class MSSQLPwner(BaseSQLClient):
             self.add_to_server_state(linked_server, f'{principal_type}_principals_history', user)
             if self.build_chain(query, linked_server, method="exec_at")['is_success']:
                 LOG.info(f"Successfully impersonated as {user} {principal_type} principal on {linked_server}")
-                self.execute_as = Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user)
+                self.execute_as = query
                 return True
         return False
 
