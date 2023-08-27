@@ -204,10 +204,7 @@ class Operations(BaseSQLClient):
         required_queries = ["server_information", "user_information"]
         dict_results = {}
         for key, query in queries.items():
-            if not linked_server:
-                results = self.build_chain(query, linked_server)
-            else:
-                results = self.custom_sql_query(query)
+            results = self.build_chain(query, linked_server)
 
             if not results['is_success']:
                 if key in required_queries:
