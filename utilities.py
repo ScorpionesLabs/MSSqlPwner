@@ -1,3 +1,11 @@
+########################################################
+__author__ = ['Nimrod Levy']
+__license__ = 'GPL v3'
+__version__ = 'v1.1'
+__email__ = ['El3ct71k@gmail.com']
+
+########################################################
+
 import os
 import re
 import json
