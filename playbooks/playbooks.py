@@ -242,6 +242,7 @@ class Playbooks(Operations):
                         LOG.error("Linked server is not valid!")
                         continue
                     chosen_link_server = args.link
+
                     continue
 
                 if not self.execute_module(args):

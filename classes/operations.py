@@ -109,7 +109,7 @@ class Operations(BaseSQLClient):
         if self.chain_id:
             filtered_servers = self.filter_server_by_chain_id(self.chain_id)
         else:
-            filtered_servers = self.filter_server_by_chain_str(linked_server)
+            filtered_servers = self.filter_server_by_link_name(linked_server)
 
         chain_str = filtered_servers[0]['chain_str']
         user_name = filtered_servers[0]['server_user']
