@@ -200,27 +200,17 @@ class Playbooks(Operations):
         return True
 
     def interactive_mode(self, options) -> bool:
-        history = []
         chosen_chain_id = options.chain_id
         chosen_link_server = options.link_server
         parser, available_modules = utilities.generate_arg_parser()
         available_modules.remove("interactive")
         available_modules += ["help", "exit", ]
-
         while True:
             try:
                 chosen_link_server = chosen_link_server if chosen_link_server else self.state['local_hostname']
                 title = self.get_title(chosen_link_server)
 
                 args_list = input(f"MSSqlPwner#{title}> ").strip()
-                if args_list not in ['y', 'n']:
-                    history.append(args_list)
-                if args_list == "up":
-                    if history:
-                        print(history[-1])
-                elif args_list == "down":
-                    if history:
-                        print(history.pop())
 
                 if args_list.split(" ")[0] not in available_modules:
                     LOG.error(f"Unknown module {args_list.split(' ')[0]}, you can use: {', '.join(available_modules)}")
