@@ -256,6 +256,8 @@ class Operations(BaseSQLClient):
 
         if 'server_principals' in dict_results.keys():
             for server_principal in dict_results['server_principals']:
+                if server_principal['username'] == server_user:
+                    continue
                 if server_principal['permission_name'] != 'IMPERSONATE':
                     if not self.is_privileged_server_user(linked_server):
                         continue
@@ -263,6 +265,9 @@ class Operations(BaseSQLClient):
 
         if 'db_principals' in dict_results.keys():
             for db_principal in dict_results['db_principals']:
+                if db_principal['username'] == db_user:
+                    continue
+                    
                 if db_principal['permission_name'] != 'IMPERSONATE':
                     if not self.is_privileged_db_user(linked_server):
                         continue
