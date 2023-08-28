@@ -239,11 +239,12 @@ class Playbooks(Operations):
                 elif args.module == "set-link-server":
                     chosen_chain_id = None
                     self.chain_id = None
-                    if not self.is_valid_link_server(args.link):
+                    link_server = args.link.upper()
+                    if not self.is_valid_link_server(link_server):
                         LOG.error("Linked server is not valid!")
                         continue
-                    chosen_link_server = args.link
 
+                    chosen_link_server = link_server
                     continue
 
                 if not self.execute_module(args):
