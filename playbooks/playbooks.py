@@ -213,7 +213,8 @@ class Playbooks(Operations):
                 title = self.get_title(chosen_link_server)
 
                 args_list = input(f"MSSqlPwner#{title}> ").strip()
-                history.append(args_list)
+                if args_list not in ['y', 'n']:
+                    history.append(args_list)
                 if args_list == "up":
                     if history:
                         print(history[-1])
