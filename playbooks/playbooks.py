@@ -204,7 +204,7 @@ class Playbooks(Operations):
         chosen_link_server = options.link_server
         parser, available_modules = utilities.generate_arg_parser()
         available_modules.remove("interactive")
-        available_modules += ["help", "exit", ]
+        available_modules += ["help", "exit"]
         while True:
             try:
                 chosen_link_server = chosen_link_server if chosen_link_server else self.state['local_hostname']
