@@ -82,7 +82,10 @@ class Operations(BaseSQLClient):
         """
             This function is responsible to filter the server by link name.
         """
-        link_information = utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)[0]
+        link_information = utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)
+        if not link_information:
+            return []
+        link_information = link_information[0]
         hosts = utilities.filter_subdict_by_key(self.state['servers_info'], "hostname", link_information['hostname'])
         filtered_by_domain = utilities.filter_dict_by_key(hosts, "domain_name", link_information['domain_name'])
         return utilities.sort_dict_by_key(filtered_by_domain, "chain_id")
