@@ -82,25 +82,26 @@ class Operations(BaseSQLClient):
         """
             This function is responsible to filter the server by link name.
         """
-        return utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)
+        ret_val = utilities.filter_dict_by_key(self.state['servers_info'], "link_name", link_name)
+        return utilities.sort_dict_by_key(ret_val, "chain_id")
 
     def filter_server_by_chain_str(self, chain_str: str):
         """
             This function is responsible to filter the server by chain.
         """
-        return utilities.filter_subdict_by_key(self.state['servers_info'], "chain_str", chain_str)
+        return utilities.filter_dict_by_key(self.state['servers_info'], "chain_str", chain_str)
 
     def filter_server_by_chain_id(self, chain_id: int):
         """
             This function is responsible to filter the server by chain id.
         """
-        return utilities.filter_subdict_by_key(self.state['servers_info'], "chain_id", chain_id)
+        return utilities.filter_dict_by_key(self.state['servers_info'], "chain_id", chain_id)
 
     def sort_servers_by_chain_id(self):
         """
             This function is responsible to sort the servers by chain id.
         """
-        return utilities.sort_subdict_by_key(self.state['servers_info'], "chain_id")
+        return utilities.sort_dict_by_key(self.state['servers_info'].values(), "chain_id")
 
     def get_title(self, linked_server):
         """
@@ -269,6 +270,8 @@ class Operations(BaseSQLClient):
         """
         if not linked_server:
             linked_server = self.state['local_hostname']
+            if "." not in linked_server:
+                linked_server += "." + self.domain
         state = copy.copy(old_state)
         state = state if state else [linked_server]
         rows = self.build_chain(Queries.GET_LINKABLE_SERVERS, linked_server)

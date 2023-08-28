@@ -153,36 +153,36 @@ def is_string_in_lists(current_groups: list, privileged_groups: list) -> bool:
     return False
 
 
-def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
+def filter_dict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
     """
-    This function is responsible to return filtered subdict from dict.
+    This function is responsible to return filtered dict by key.
     for example
     {
         "a": {
-                "category": "server",
+                "type": "server",
                 "data": "aaa",
                 ...
             },
         "b": {
-            "server": "instance",
+            "type": "instance",
             "data": "bbb",
             ...
         },
         "c": {
-            "server": "server",
+            "type": "server",
             "data": "ccc",
             ...
         }
     }
-    filter_subdict_by_key(dict_with_dict_values, "server", "a server") will return
+    filter_subdict_by_key(dict_with_dict_values, "type", "server") will return
     [
     {
-        "category": "server",
+        "type": "server",
         "data": "aaa",
         ...
     },
-    "c": {
-        "server": "server",
+    {
+        "type": "server",
         "data": "ccc",
         ...
     }
@@ -192,11 +192,11 @@ def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
     return [v for k, v in dict_with_dict_values.items() if v[key] == value]
 
 
-def sort_subdict_by_key(dict_with_dict_values: dict, key: str) -> list:
+def sort_dict_by_key(dict_with_dict_values: list, key: str) -> list:
     """
-    This function is responsible to sort subdict from dict.
+    This function is responsible to sort dict by key.
     """
-    return [v for k, v in sorted(dict_with_dict_values.items(), key=lambda x: x[1][key])]
+    return [d for d in sorted(dict_with_dict_values, key=lambda x: x[key])]
 
 
 def build_openquery(linked_server: str, query: str) -> str:
