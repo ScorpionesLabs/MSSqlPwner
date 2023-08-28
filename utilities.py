@@ -153,9 +153,9 @@ def is_string_in_lists(current_groups: list, privileged_groups: list) -> bool:
     return False
 
 
-def filter_dict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
+def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
     """
-    This function is responsible to return filtered dict by key.
+    This function is responsible to return filtered subdict by key.
     for example
     {
         "a": {
@@ -189,7 +189,12 @@ def filter_dict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
 
     ]
     """
-    return [v for k, v in dict_with_dict_values.items() if v[key] == value]
+    return [v for k, v in dict_with_dict_values.items() if key in v.keys() and v[key] == value]
+
+
+def filter_dict_by_key(dict_sample: list, key: str, value) -> list:
+
+    return [d for d in dict_sample if key in d.keys() and d[key] == value]
 
 
 def sort_dict_by_key(dict_with_dict_values: list, key: str) -> list:

@@ -78,26 +78,35 @@ class Operations(BaseSQLClient):
         else:
             self.state['servers_info'][linked_server][key] = value
 
-    def filter_server_by_link_name(self, link_name: str):
+    def filter_server_by_link_name(self, link_name: str) -> list:
         """
             This function is responsible to filter the server by link name.
         """
-        ret_val = utilities.filter_dict_by_key(self.state['servers_info'], "link_name", link_name)
+        ret_val = utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)
         return utilities.sort_dict_by_key(ret_val, "chain_id")
 
-    def filter_server_by_chain_str(self, chain_str: str):
+    def filter_server_by_hostname(self, link_name: str) -> list:
+        """
+            This function is responsible to filter the server by link name.
+        """
+        link_information = utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)[0]
+        hosts = utilities.filter_subdict_by_key(self.state['servers_info'], "hostname", link_information['hostname'])
+        filtered_by_domain = utilities.filter_dict_by_key(hosts, "domain_name", link_information['domain_name'])
+        return utilities.sort_dict_by_key(filtered_by_domain, "chain_id")
+
+    def filter_server_by_chain_str(self, chain_str: str) -> list:
         """
             This function is responsible to filter the server by chain.
         """
-        return utilities.filter_dict_by_key(self.state['servers_info'], "chain_str", chain_str)
+        return utilities.filter_subdict_by_key(self.state['servers_info'], "chain_str", chain_str)
 
-    def filter_server_by_chain_id(self, chain_id: int):
+    def filter_server_by_chain_id(self, chain_id: int) -> list:
         """
             This function is responsible to filter the server by chain id.
         """
-        return utilities.filter_dict_by_key(self.state['servers_info'], "chain_id", chain_id)
+        return utilities.filter_subdict_by_key(self.state['servers_info'], "chain_id", chain_id)
 
-    def sort_servers_by_chain_id(self):
+    def sort_servers_by_chain_id(self) -> list:
         """
             This function is responsible to sort the servers by chain id.
         """

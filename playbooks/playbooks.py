@@ -317,7 +317,7 @@ class Playbooks(Operations):
         else:
             if not self.is_valid_link_server(link_server):
                 return False
-            filtered_chains = self.filter_server_by_link_name(link_server)
+            filtered_chains = self.filter_server_by_hostname(link_server)
 
         for server_info in filtered_chains:
             chain_str = server_info['chain_str']
