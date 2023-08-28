@@ -225,6 +225,8 @@ class Operations(BaseSQLClient):
         instance_name = dict_results['server_information'][0]['instance_name']
 
         if not linked_server:
+            if "." not in hostname:
+                hostname += "." + self.domain
             self.state['local_hostname'] = hostname
             LOG.info(f"Discovered hostname: {hostname}")
             linked_server = hostname
@@ -270,8 +272,6 @@ class Operations(BaseSQLClient):
         """
         if not linked_server:
             linked_server = self.state['local_hostname']
-            if "." not in linked_server:
-                linked_server += "." + self.domain
         state = copy.copy(old_state)
         state = state if state else [linked_server]
         rows = self.build_chain(Queries.GET_LINKABLE_SERVERS, linked_server)
@@ -292,7 +292,13 @@ class Operations(BaseSQLClient):
                 self.add_to_server_state(linked_server, "adsi_providers", linkable_server)
                 continue
 
-            if linkable_server == state[-1].split(".")[0] or linkable_server in state[1:]:
+            if "." not in linkable_server and linkable_server == state[-1].split(".")[0]:
+                continue
+                
+            elif "." in linkable_server and "." in state[-1] and linkable_server == state[-1]:
+                continue
+
+            elif linkable_server in state[1:]:
                 continue
 
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
