@@ -162,7 +162,7 @@ class Operations(BaseSQLClient):
             if not server_info:
                 LOG.error(f"{captured_link} is not in the linked servers list")
                 continue
-            if captured_link['hostname'] == new_server[0]['hostname']:
+            if server_info[0]['hostname'] == new_server[0]['hostname']:
                 if captured_link['domain_name'] == new_server[0]['domain_name']:
                     return True
         return False
