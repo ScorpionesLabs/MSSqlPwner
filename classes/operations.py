@@ -78,7 +78,7 @@ class Operations(BaseSQLClient):
         else:
             self.state['servers_info'][linked_server][key] = value
 
-    def filter_server_by_hostname(self, link_name: str) -> list:
+    def filter_server_by_link_name(self, link_name: str) -> list:
         """
             This function is responsible to filter the server by link name.
         """
@@ -115,7 +115,7 @@ class Operations(BaseSQLClient):
         if self.chain_id:
             filtered_servers = self.filter_server_by_chain_id(self.chain_id)
         else:
-            filtered_servers = self.filter_server_by_hostname(linked_server)
+            filtered_servers = self.filter_server_by_link_name(linked_server)
 
         chain_str = filtered_servers[0]['chain_str']
         user_name = filtered_servers[0]['server_user']
@@ -141,13 +141,31 @@ class Operations(BaseSQLClient):
             This function is responsible to check if the given linked server is valid.
         """
 
-        filtered_servers = self.filter_server_by_hostname(linked_server)
+        filtered_servers = self.filter_server_by_link_name(linked_server)
 
         if not filtered_servers:
             LOG.error(f"{linked_server} is not in the linked servers list")
             return False
         LOG.info(f"Chosen linked server: {linked_server}")
         return True
+
+    def is_link_in_state(self, link_server, state) -> bool:
+        """
+            This function is responsible to check if the given linked server is in the state.
+        """
+        new_server = self.filter_server_by_link_name(link_server)
+        if not new_server:
+            return True
+
+        for captured_link in state:
+            server_info = self.filter_server_by_link_name(captured_link)
+            if not server_info:
+                LOG.error(f"{captured_link} is not in the linked servers list")
+                continue
+            if captured_link['hostname'] == new_server[0]['hostname']:
+                if captured_link['domain_name'] == new_server[0]['domain_name']:
+                    return True
+        return False
 
     def detect_architecture(self, linked_server: str, arch: Literal['autodetect', 'x64', 'x86']) -> str:
         """
@@ -267,7 +285,7 @@ class Operations(BaseSQLClient):
             for db_principal in dict_results['db_principals']:
                 if db_principal['username'] == db_user:
                     continue
-                    
+
                 if db_principal['permission_name'] != 'IMPERSONATE':
                     if not self.is_privileged_db_user(linked_server):
                         continue
@@ -300,15 +318,6 @@ class Operations(BaseSQLClient):
                 self.add_to_server_state(linked_server, "adsi_providers", linkable_server)
                 continue
 
-            if "." not in linkable_server and linkable_server == state[-1].split(".")[0]:
-                continue
-
-            elif "." in linkable_server and "." in state[-1] and linkable_server == state[-1]:
-                continue
-
-            elif linkable_server in state[1:]:
-                continue
-
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
                                      remove_duplicates=False)
@@ -316,10 +325,9 @@ class Operations(BaseSQLClient):
             if not self.retrieve_server_information(linkable_chain_str, linkable_server):
                 continue
 
-            if linkable_server == self.state['local_hostname'] or linkable_server in state \
-                    or len(state) >= self.max_recursive_links:
+            if self.is_link_in_state(linkable_server, state):
                 continue
-            self.retrieve_links(linkable_chain_str, self.state['servers_info'][linkable_chain_str]['chain_tree'])
+            self.retrieve_links(linkable_chain_str, state + [linkable_server])
 
     def direct_query(self, query: str, linked_server: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
                      decode_results: bool = True, print_results: bool = False) -> bool:
