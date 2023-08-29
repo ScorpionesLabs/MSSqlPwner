@@ -153,6 +153,13 @@ class Operations(BaseSQLClient):
         """
             This function is responsible to check if the given linked server is in the state.
         """
+        if not state:
+            return False
+
+        # Link: CDC01 | state[-1]: CDC01.PROD.CORP1.COM
+        if link_server == state[-1].split(".")[0]:
+            return True
+
         new_server = self.filter_server_by_link_name(link_server)
         if not new_server:
             return False
