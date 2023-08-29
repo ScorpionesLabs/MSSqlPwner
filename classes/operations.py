@@ -31,7 +31,7 @@ class Operations(BaseSQLClient):
 
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
-        self.current_chain_id = 1
+        self.current_chain_id = 0
         self.chain_id = args_options.chain_id
         self.auto_yes = args_options.auto_yes
         self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
@@ -40,6 +40,7 @@ class Operations(BaseSQLClient):
         """
             This function is responsible to add the server items to the server state.
         """
+
         if linked_server not in self.state['servers_info'].keys():
             self.state['servers_info'][linked_server] = {
                 "hostname": "",
@@ -62,7 +63,6 @@ class Operations(BaseSQLClient):
                 "database_principals_history": list()
 
             }
-            self.current_chain_id += 1
 
         if isinstance(self.state['servers_info'][linked_server][key], list):
             if not isinstance(value, list):
@@ -319,7 +319,8 @@ class Operations(BaseSQLClient):
         for row in rows['results']:
             if not row['SRV_NAME']:
                 continue
-
+                
+            self.current_chain_id += 1
             linkable_server = utilities.remove_service_name(row['SRV_NAME'])
             if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject":
                 self.add_to_server_state(linked_server, "adsi_providers", linkable_server)
