@@ -327,14 +327,14 @@ class Operations(BaseSQLClient):
 
             if self.is_link_in_state(linkable_server, state):
                 continue
-
+                
+            self.current_chain_id += 1
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
                                      remove_duplicates=False)
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
             if not self.retrieve_server_information(linkable_chain_str, linkable_server):
                 continue
-            self.current_chain_id += 1
 
             self.retrieve_links(linkable_chain_str, state + [linkable_server])
 
