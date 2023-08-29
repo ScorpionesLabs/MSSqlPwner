@@ -17,6 +17,10 @@ If the authenticated MSSQL user does not have permission to execute certain oper
 For example, it can send a query to a linked server that returns back with a link to the authenticated MSSQL service with higher permissions.
 The tool also supports recursive querying via links to execute queries and commands on otherwise inaccessible linked servers directed from the compromised MSSQL service.
 
+## Example
+<p align="center">
+ <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/poc.png?raw=true">
+</p>
 
 This tool is supported by multiple authentication methods and described below.
 
