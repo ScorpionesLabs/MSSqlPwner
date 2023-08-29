@@ -161,9 +161,10 @@ class Operations(BaseSQLClient):
             return True
 
         new_server = self.filter_server_by_link_name(link_server)
+
         if not new_server:
             return False
-
+        counter = 1
         for captured_link in state:
             server_info = self.filter_server_by_link_name(captured_link)
             if not server_info:
@@ -171,7 +172,9 @@ class Operations(BaseSQLClient):
                 continue
             if server_info[0]['hostname'] == new_server[0]['hostname']:
                 if server_info[0]['domain_name'] == new_server[0]['domain_name']:
-                    return True
+                    if counter >= 2:
+                        return True
+                    counter += 1
         return False
 
     def detect_architecture(self, linked_server: str, arch: Literal['autodetect', 'x64', 'x86']) -> str:
@@ -334,6 +337,7 @@ class Operations(BaseSQLClient):
                                      remove_duplicates=False)
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
             if not self.retrieve_server_information(linkable_chain_str, linkable_server):
+                self.current_chain_id -= 1
                 continue
 
             self.retrieve_links(linkable_chain_str, state + [linkable_server])
