@@ -318,13 +318,7 @@ class Operations(BaseSQLClient):
                 self.add_to_server_state(linked_server, "adsi_providers", linkable_server)
                 continue
 
-            if "." not in linkable_server and linkable_server == state[-1].split(".")[0]:
-                continue
-
-            elif "." in linkable_server and "." in state[-1] and linkable_server == state[-1]:
-                continue
-
-            elif linkable_server in state[1:]:
+            if self.is_link_in_state(linkable_server, state):
                 continue
 
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
@@ -334,8 +328,6 @@ class Operations(BaseSQLClient):
             if not self.retrieve_server_information(linkable_chain_str, linkable_server):
                 continue
 
-            if self.is_link_in_state(linkable_server, state):
-                continue
             self.retrieve_links(linkable_chain_str, state + [linkable_server])
 
     def direct_query(self, query: str, linked_server: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
