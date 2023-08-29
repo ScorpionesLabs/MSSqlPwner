@@ -318,6 +318,15 @@ class Operations(BaseSQLClient):
                 self.add_to_server_state(linked_server, "adsi_providers", linkable_server)
                 continue
 
+            if "." not in linkable_server and linkable_server == state[-1].split(".")[0]:
+                continue
+
+            elif "." in linkable_server and "." in state[-1] and linkable_server == state[-1]:
+                continue
+
+            elif linkable_server in state[1:]:
+                continue
+
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
                                      remove_duplicates=False)
