@@ -155,7 +155,7 @@ class Operations(BaseSQLClient):
         """
         new_server = self.filter_server_by_link_name(link_server)
         if not new_server:
-            return True
+            return False
 
         for captured_link in state:
             server_info = self.filter_server_by_link_name(captured_link)
