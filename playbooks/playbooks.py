@@ -247,8 +247,7 @@ class Playbooks(Operations):
                     chosen_link_server = link_server
                     continue
 
-                if not self.execute_module(args):
-                    continue
+                self.execute_module(args)
 
             except KeyboardInterrupt:
                 break
