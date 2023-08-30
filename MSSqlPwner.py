@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
@@ -30,6 +30,10 @@ def main():
         LOG.error("target must be supplied!")
         return
 
+    if not options.module:
+        LOG.error("Module must be supplied!")
+        return
+
     domain, username, password, address = parse_target(options.target)
 
     if domain is None:
@@ -41,6 +45,7 @@ def main():
 
     if options.aesKey is not None:
         options.k = True
+
     mssql_client = Playbooks(address, username, options)
     if not mssql_client.connect(username, password, domain):
         return

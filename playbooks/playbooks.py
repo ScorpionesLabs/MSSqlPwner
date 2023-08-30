@@ -220,7 +220,8 @@ class Playbooks(Operations):
                 elif args_list == "help":
                     parser.print_help()
                     continue
-                arguments = utilities.split_exclude_quotes(f'{" ".join(sys.argv[1:-1]).strip()} {args_list}')
+                arguments = utilities.split_exclude_quotes(f'{" ".join(sys.argv[1:]).strip()} {args_list}')
+                arguments.remove("interactive")
                 args = parser.parse_args(arguments)
                 args.chain_id = chosen_chain_id
                 args.link_server = chosen_link_server

@@ -244,6 +244,17 @@ def calculate_sha512_hash(file_path: str) -> str:
 
 
 class MyArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        # Call the parent class's constructor
+        super().__init__(*args, **kwargs)
+
+        # Override the default behavior of -h/--help
+        self._optionals.title = "Options"
+
+    def error(self, message):
+        # Override the default error message to not mention -h
+        pass
+
     # Suppress the default error message
     def exit(self, status=0, message=None):
         return
