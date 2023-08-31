@@ -54,14 +54,14 @@ class Operations(BaseSQLClient):
                 "version": "",
                 "domain_name": "",
                 "chain_id": self.current_chain_id,
-                "server_principals": list(),
-                "database_principals": list(),
-                "server_roles": list(),
-                "database_roles": list(),
-                "trustworthy_db_list": list(),
-                "adsi_providers": list(),
-                "server_principals_history": list(),
-                "database_principals_history": list()
+                "server_principals": set(),
+                "database_principals": set(),
+                "server_roles": set(),
+                "database_roles": set(),
+                "trustworthy_db_list": set(),
+                "adsi_providers": set(),
+                "server_principals_history": set(),
+                "database_principals_history": set()
 
             }
 
@@ -70,6 +70,12 @@ class Operations(BaseSQLClient):
                 value = [value]
             for v in value:
                 self.state['servers_info'][linked_server][key].append(v)
+
+        elif isinstance(self.state['servers_info'][linked_server][key], set):
+            if not isinstance(value, set):
+                value = [value]
+            for v in value:
+                self.state['servers_info'][linked_server][key].add(v)
 
         elif isinstance(self.state['servers_info'][linked_server][key], dict):
             for k, v in value.items():
