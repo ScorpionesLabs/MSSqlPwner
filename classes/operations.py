@@ -350,11 +350,8 @@ class Operations(BaseSQLClient):
             return False
 
         if not results['results']:
-            if self.can_impersonate(linked_server):
-                if utilities.receive_answer("No results were returned. try to escalate privileges?", ['y', 'n'], 'y'):
-                    return False
-                else:
-                    return True
+            LOG.info(f"No results found for query: {query}")
+            return True
 
         for result in results['results']:
             for key, value in result.items():
