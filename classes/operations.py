@@ -36,7 +36,7 @@ class Operations(BaseSQLClient):
         self.auto_yes = args_options.auto_yes
         self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
 
-    def add_to_server_state(self, linked_server: str, key: str, value: Any, remove_duplicates: bool = True):
+    def add_to_server_state(self, linked_server: str, key: str, value: Any):
         """
             This function is responsible to add the server items to the server state.
         """
@@ -70,8 +70,6 @@ class Operations(BaseSQLClient):
             if not isinstance(value, list):
                 value = [value]
             for v in value:
-                if v in self.state['servers_info'][linked_server][key] and remove_duplicates:
-                    continue
                 self.state['servers_info'][linked_server][key].append(v)
 
         elif isinstance(self.state['servers_info'][linked_server][key], dict):
@@ -238,9 +236,6 @@ class Operations(BaseSQLClient):
             if not results['is_success']:
                 if key in required_queries:
                     LOG.error(f"Failed to retrieve {key} from {linked_server}")
-                    if linked_server in self.state['servers_info'].keys():
-                        del self.state['servers_info'][linked_server]
-                        self.current_chain_id -= 1
                     return False
                 continue
             dict_results[key] = results['results']
@@ -296,6 +291,7 @@ class Operations(BaseSQLClient):
                     if not self.is_privileged_db_user(linked_server):
                         continue
                 self.add_to_server_state(linked_server, "database_principals", db_principal['username'])
+        self.chain_id += 1
         return True
 
     def retrieve_links(self, linked_server: str = None, old_state: list = None) -> None:
@@ -328,12 +324,12 @@ class Operations(BaseSQLClient):
                 continue
 
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
-            self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
-                                     remove_duplicates=False)
-            self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
+
             if not self.retrieve_server_information(linkable_chain_str, linkable_server):
                 continue
 
+            self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server])
+            self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
             self.retrieve_links(linkable_chain_str, state + [linkable_server])
 
     def direct_query(self, query: str, linked_server: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
