@@ -25,11 +25,13 @@ IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configura
 # Configuration queries
 RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;"
 
-# Custom assemblies queries
-ADD_CUSTOM_ASM = "CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE;"
 
-CREATE_PROCEDURE = "CREATE PROCEDURE [dbo].[{procedure_name}] @{arg} NVARCHAR (4000) AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];"
-CREATE_FUNCTION = "CREATE FUNCTION [dbo].{function_name}({arg}) RETURNS NVARCHAR(MAX) AS EXTERNAL NAME {asm_name}.[{namespace}.{class_name}].{function_name};"
+
+# Custom assemblies queries
+ADD_CUSTOM_ASM = "EXEC('CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE;')"
+
+CREATE_PROCEDURE = "EXEC('CREATE PROCEDURE [dbo].[{procedure_name}] @{arg} NVARCHAR (4000) AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];')"
+CREATE_FUNCTION = "EXEC('CREATE FUNCTION [dbo].{function_name}({arg}) RETURNS NVARCHAR(MAX) AS EXTERNAL NAME {asm_name}.[{namespace}.{class_name}].{function_name};')"
 IS_MY_APP_TRUSTED = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.trusted_assemblies WHERE hash = {my_hash}) THEN 'True' ELSE 'False' END AS [status];"
 TRUST_MY_APP = "EXEC sp_add_trusted_assembly @hash = {my_hash}, @description = N'Trusted Assembly for My Application';"
 UNTRUST_MY_APP = "EXEC sp_drop_trusted_assembly @hash = {my_hash};"

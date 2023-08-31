@@ -1,0 +1,278 @@
+{
+    "local_hostname": "RDC01",
+    "servers_info": {
+        "RDC01": {
+            "hostname": "RDC01",
+            "chain_str": "RDC01",
+            "chain_tree": [],
+            "db_user": "guest",
+            "db_name": "master",
+            "server_user": "PROD\\offsec",
+            "link_name": "RDC01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": 1,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> CDC01.PROD.CORP1.COM": {
+            "hostname": "CDC01",
+            "chain_str": "RDC01 -> CDC01.PROD.CORP1.COM",
+            "chain_tree": [
+                "RDC01",
+                "CDC01.PROD.CORP1.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "CDC01.PROD.CORP1.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "PROD",
+            "chain_id": 2,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> CDC01.PROD.CORP1.COM -> RDC01.CORP1.COM": {
+            "hostname": "RDC01",
+            "chain_str": "RDC01 -> CDC01.PROD.CORP1.COM -> RDC01.CORP1.COM",
+            "chain_tree": [
+                "RDC01",
+                "CDC01.PROD.CORP1.COM",
+                "RDC01.CORP1.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "RDC01.CORP1.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": 3,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> CDC01.PROD.CORP1.COM -> RDC01.CORP1.COM -> CDC01.PROD.CORP1.COM": {
+            "hostname": "CDC01",
+            "chain_str": "RDC01 -> CDC01.PROD.CORP1.COM -> RDC01.CORP1.COM -> CDC01.PROD.CORP1.COM",
+            "chain_tree": [
+                "RDC01",
+                "CDC01.PROD.CORP1.COM",
+                "RDC01.CORP1.COM",
+                "CDC01.PROD.CORP1.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "CDC01.PROD.CORP1.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "PROD",
+            "chain_id": 4,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> CDC01.PROD.CORP1.COM -> RDC01.CORP1.COM -> DC01.CORP2.COM": {
+            "hostname": "DC01",
+            "chain_str": "RDC01 -> CDC01.PROD.CORP1.COM -> RDC01.CORP1.COM -> DC01.CORP2.COM",
+            "chain_tree": [
+                "RDC01",
+                "CDC01.PROD.CORP1.COM",
+                "RDC01.CORP1.COM",
+                "DC01.CORP2.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "DC01.CORP2.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP2",
+            "chain_id": 5,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> DC01.CORP2.COM": {
+            "hostname": "DC01",
+            "chain_str": "RDC01 -> DC01.CORP2.COM",
+            "chain_tree": [
+                "RDC01",
+                "DC01.CORP2.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "DC01.CORP2.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP2",
+            "chain_id": 6,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> DC01.CORP2.COM -> RDC01.CORP1.COM": {
+            "hostname": "RDC01",
+            "chain_str": "RDC01 -> DC01.CORP2.COM -> RDC01.CORP1.COM",
+            "chain_tree": [
+                "RDC01",
+                "DC01.CORP2.COM",
+                "RDC01.CORP1.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "RDC01.CORP1.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": 7,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> DC01.CORP2.COM -> RDC01.CORP1.COM -> CDC01.PROD.CORP1.COM": {
+            "hostname": "CDC01",
+            "chain_str": "RDC01 -> DC01.CORP2.COM -> RDC01.CORP1.COM -> CDC01.PROD.CORP1.COM",
+            "chain_tree": [
+                "RDC01",
+                "DC01.CORP2.COM",
+                "RDC01.CORP1.COM",
+                "CDC01.PROD.CORP1.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "CDC01.PROD.CORP1.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "PROD",
+            "chain_id": 8,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        },
+        "RDC01 -> DC01.CORP2.COM -> RDC01.CORP1.COM -> DC01.CORP2.COM": {
+            "hostname": "DC01",
+            "chain_str": "RDC01 -> DC01.CORP2.COM -> RDC01.CORP1.COM -> DC01.CORP2.COM",
+            "chain_tree": [
+                "RDC01",
+                "DC01.CORP2.COM",
+                "RDC01.CORP1.COM",
+                "DC01.CORP2.COM"
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "DC01.CORP2.COM",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP2",
+            "chain_id": 9,
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "server_principals_history": [],
+            "database_principals_history": []
+        }
+    }
+}
