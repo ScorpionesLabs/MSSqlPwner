@@ -42,11 +42,13 @@ class Operations(BaseSQLClient):
         """
 
         if linked_server not in self.state['servers_info'].keys():
+            self.current_chain_id += 1
             self.state['servers_info'][linked_server] = {
                 "hostname": "",
                 "chain_str": linked_server,
                 "chain_tree": list(),
                 "db_user": "",
+                "db_name": "",
                 "server_user": "",
                 "link_name": "",
                 "instance_name": "",
@@ -120,7 +122,8 @@ class Operations(BaseSQLClient):
         chain_str = filtered_servers[0]['chain_str']
         user_name = filtered_servers[0]['server_user']
         db_user = filtered_servers[0]['db_user']
-        return f"{chain_str} (Server user: {user_name} | DB User: {db_user})"
+        db_name = filtered_servers[0]['db_name']
+        return f"{chain_str} ({user_name} {db_user}@{db_name})"
 
     def is_valid_chain_id(self) -> bool:
         """
@@ -215,27 +218,19 @@ class Operations(BaseSQLClient):
         return utilities.is_string_in_lists(self.state['servers_info'][linked_server]['database_roles'],
                                             self.high_privileged_database_roles)
 
-    def remove_server_information(self, linked_server: str):
-        """
-            This function is responsible to remove the server information.
-        """
-        if linked_server in self.state['servers_info'].keys():
-            del self.state['servers_info'][linked_server]
-
     def retrieve_server_information(self, linked_server: str = None, linked_server_name: str = None) -> bool:
         """
             This function is responsible to retrieve the server information.
         """
         queries = {
             "server_information": Queries.SERVER_INFORMATION,
-            "user_information": Queries.USER_INFORMATION,
             "trustworthy_db_list": Queries.TRUSTWORTHY_DB_LIST,
             "server_roles": Queries.GET_USER_SERVER_ROLES,
             "db_roles": Queries.GET_USER_DATABASE_ROLES,
             "server_principals": Queries.CAN_IMPERSONATE_AS_SERVER_PRINCIPAL,
             "db_principals": Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL
         }
-        required_queries = ["server_information", "user_information"]
+        required_queries = ["server_information"]
         dict_results = {}
         for key, query in queries.items():
             results = self.build_chain(query, linked_server)
@@ -243,13 +238,16 @@ class Operations(BaseSQLClient):
             if not results['is_success']:
                 if key in required_queries:
                     LOG.error(f"Failed to retrieve {key} from {linked_server}")
-                    self.remove_server_information(linked_server)
+                    if linked_server in self.state['servers_info'].keys():
+                        del self.state['servers_info'][linked_server]
+                        self.current_chain_id -= 1
                     return False
                 continue
             dict_results[key] = results['results']
 
-        db_user = dict_results['user_information'][0]['db_user']
-        server_user = dict_results['user_information'][0]['server_user']
+        db_user = dict_results['server_information'][0]['db_user']
+        server_user = dict_results['server_information'][0]['server_user']
+        db_name = dict_results['server_information'][0]['db_name']
 
         hostname = utilities.remove_service_name(dict_results['server_information'][0]['hostname'])
 
@@ -267,6 +265,7 @@ class Operations(BaseSQLClient):
         self.add_to_server_state(linked_server, "db_user", db_user)
         self.add_to_server_state(linked_server, "server_user", server_user)
         self.add_to_server_state(linked_server, "version", server_version)
+        self.add_to_server_state(linked_server, "db_name", db_name)
         self.add_to_server_state(linked_server, "domain_name", domain_name)
         self.add_to_server_state(linked_server, "instance_name", instance_name)
 
@@ -331,13 +330,11 @@ class Operations(BaseSQLClient):
             if self.is_link_in_state(linkable_server, state):
                 continue
 
-            self.current_chain_id += 1
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server],
                                      remove_duplicates=False)
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
             if not self.retrieve_server_information(linkable_chain_str, linkable_server):
-                self.current_chain_id -= 1
                 continue
 
             self.retrieve_links(linkable_chain_str, state + [linkable_server])

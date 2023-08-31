@@ -14,8 +14,7 @@ SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell 
 PROCEDURE_EXECUTION = "EXEC {procedure} '{command}';"
 
 # General queries
-USER_INFORMATION = "SELECT USER_NAME() as db_user, SYSTEM_USER as server_user;"
-SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domain_name, @@VERSION as server_version, @@servicename as instance_name;"
+SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domain_name, @@VERSION as server_version, @@servicename as instance_name, USER_NAME() as db_user, SYSTEM_USER as server_user, DB_NAME() AS db_name"
 TRUSTWORTHY_DB_LIST = "SELECT name AS 'name' FROM sys.databases WHERE is_trustworthy_on = 1;"
 
 # Permission checks
