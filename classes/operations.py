@@ -42,7 +42,6 @@ class Operations(BaseSQLClient):
         """
 
         if linked_server not in self.state['servers_info'].keys():
-            self.current_chain_id += 1
             self.state['servers_info'][linked_server] = {
                 "hostname": "",
                 "chain_str": linked_server,
