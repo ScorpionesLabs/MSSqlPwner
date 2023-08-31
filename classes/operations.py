@@ -324,11 +324,13 @@ class Operations(BaseSQLClient):
 
             linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
 
-            if not self.retrieve_server_information(linkable_chain_str, linkable_server):
-                continue
-
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server])
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
+
+            if not self.retrieve_server_information(linkable_chain_str, linkable_server):
+                del self.state['servers_info'][linkable_chain_str]
+                continue
+
             self.retrieve_links(linkable_chain_str, state + [linkable_server])
 
     def direct_query(self, query: str, linked_server: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
