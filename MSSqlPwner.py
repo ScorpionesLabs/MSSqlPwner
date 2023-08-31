@@ -26,6 +26,7 @@ EXEC sp_serveroption 'SQLSRV01','rpc out','true';
 
 """
 
+
 def main():
     # Init the example's logger theme
     logger.init()

@@ -119,7 +119,7 @@ class Operations(BaseSQLClient):
         else:
             filtered_servers = self.filter_server_by_link_name(linked_server)
 
-        chain_str = filtered_servers[0]['chain_str']
+        chain_str = filtered_servers[0]['chain_title']
         user_name = filtered_servers[0]['server_user']
         db_user = filtered_servers[0]['db_user']
         db_name = filtered_servers[0]['db_name']
@@ -260,14 +260,11 @@ class Operations(BaseSQLClient):
             LOG.info(f"Discovered hostname: {hostname}")
             linked_server = hostname
         linked_server_name = linked_server_name if linked_server_name else hostname
-        self.add_to_server_state(linked_server, "hostname", hostname)
-        self.add_to_server_state(linked_server, "link_name", linked_server_name)
-        self.add_to_server_state(linked_server, "db_user", db_user)
-        self.add_to_server_state(linked_server, "server_user", server_user)
-        self.add_to_server_state(linked_server, "version", server_version)
-        self.add_to_server_state(linked_server, "db_name", db_name)
-        self.add_to_server_state(linked_server, "domain_name", domain_name)
-        self.add_to_server_state(linked_server, "instance_name", instance_name)
+        for k, v in {"hostname": hostname, "link_name": linked_server_name, "db_user": db_user,
+                     "server_user": server_user, "version": server_version, "db_name": db_name,
+                     "domain_name": domain_name, "instance_name": instance_name}.items():
+
+            self.add_to_server_state(linked_server, k, v)
 
         if 'trustworthy_db_list' in dict_results.keys():
             for db_name in dict_results['trustworthy_db_list']:
