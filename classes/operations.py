@@ -45,6 +45,7 @@ class Operations(BaseSQLClient):
             self.state['servers_info'][linked_server] = {
                 "hostname": "",
                 "chain_str": linked_server,
+                "previous_chain_str": "",
                 "chain_tree": list(),
                 "db_user": "",
                 "db_name": "",
@@ -221,7 +222,8 @@ class Operations(BaseSQLClient):
         return utilities.is_string_in_lists(self.state['servers_info'][linked_server]['database_roles'],
                                             self.high_privileged_database_roles)
 
-    def retrieve_server_information(self, linked_server: str = None, linked_server_name: str = None) -> bool:
+    def retrieve_server_information(self, linked_server: str = None, linked_server_name: str = None,
+                                    previous_chain_str: str = None) -> bool:
         """
             This function is responsible to retrieve the server information.
         """
@@ -296,6 +298,8 @@ class Operations(BaseSQLClient):
                     if not self.is_privileged_db_user(linked_server):
                         continue
                 self.add_to_server_state(linked_server, "database_principals", db_principal['username'])
+        if previous_chain_str:
+            self.add_to_server_state(linked_server, "previous_chain_str", previous_chain_str)
         self.current_chain_id += 1
         return True
 
@@ -333,7 +337,7 @@ class Operations(BaseSQLClient):
             self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server])
             self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
 
-            if not self.retrieve_server_information(linkable_chain_str, linkable_server):
+            if not self.retrieve_server_information(linkable_chain_str, linkable_server, linked_server):
                 del self.state['servers_info'][linkable_chain_str]
                 continue
 
