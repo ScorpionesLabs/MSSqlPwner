@@ -290,7 +290,7 @@ class Operations(BaseSQLClient):
                     if not self.is_privileged_db_user(linked_server):
                         continue
                 self.add_to_server_state(linked_server, "database_principals", db_principal['username'])
-        self.chain_id += 1
+        self.current_chain_id += 1
         return True
 
     def retrieve_links(self, linked_server: str = None, old_state: list = None) -> None:
