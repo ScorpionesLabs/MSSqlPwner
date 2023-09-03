@@ -36,6 +36,9 @@ class BaseSQLClient(object):
             "hostname": ""
         }
         self.threads = []
+        self.sub_uninformative_links = re.compile(r'\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)]')
+        self.catch_impersonation_payload = re.compile(
+            r'\[(?:[a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(?:COMMAND)](.*?)\[(?:[a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(?:REVERT)]')
 
     def connect(self, username: str, password: str, domain: str) -> bool:
         """
@@ -196,14 +199,19 @@ class BaseSQLClient(object):
             yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query)
 
             for impersonation_command in self.impersonate_as(chain_id):
-                impersonated_query = utilities.escape_single_quotes(
-                    chained_query.replace(impersonation_prefix, utilities.build_payload_from_template(
-                        "[PAYLOAD]", impersonation_command + Queries.EXEC_PREFIX,
-                        len(chain_tree_ids) - i - 1)))
-                impersonated_query = impersonated_query.replace(impersonation_suffix,
-                                                                Queries.REVERT_IMPERSONATION + Queries.EXEC_SUFFIX)
+
+                payload = self.catch_impersonation_payload.match(chained_query)
+                if not payload:
+                    continue
+                new_inline_query = f"{impersonation_command}{utilities.escape_single_quotes(payload.group(1))}" \
+                                   f"{Queries.REVERT_IMPERSONATION}"
+                impersonated_query = chained_query.replace(payload.matches[0],
+                                                           utilities.build_payload_from_template(
+                                                               "[PAYLOAD]", new_inline_query,
+                                                               len(chain_tree_ids) - i - 1))
+
                 yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query)
-        yield re.sub(r"\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)]", "", chained_query)
+        yield self.sub_uninformative_links.sub("", chained_query)
 
     def build_chain(self, chain_id: str, query: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
