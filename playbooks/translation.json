@@ -1,7 +1,7 @@
 {
   "link_name": "Linked Server Name",
-  "hostname": "Hostname",
   "chain_str": "Chain",
+  "hostname": "Hostname",
   "chain_id": "Chain ID",
   "db_user": "Database User",
   "server_user": "Server User",
