@@ -203,7 +203,7 @@ class BaseSQLClient(object):
                     continue
                 new_inline_query = impersonation_command
                 new_inline_query += f"{Queries.EXEC_PREFIX}"
-                new_inline_query += payload.group(1)
+                new_inline_query += utilities.escape_single_quotes(payload.group(1))
                 new_inline_query += f"{Queries.EXEC_SUFFIX}{Queries.REVERT_IMPERSONATION}"
                 impersonated_query = chained_query.replace(payload[0],
                                                            utilities.build_payload_from_template(
