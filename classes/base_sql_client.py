@@ -198,7 +198,7 @@ class BaseSQLClient(object):
             for impersonation_command in self.impersonate_as(chain_id):
                 impersonated_query = chained_query.replace(impersonation_prefix, utilities.build_payload_from_template(
                     "[PAYLOAD]", impersonation_command + Queries.EXEC_PREFIX,
-                    len(chain_tree_ids) - i - 1))
+                    len(chain_tree_ids) - i))
                 impersonated_query = impersonated_query.replace(impersonation_suffix,
                                                                 Queries.REVERT_IMPERSONATION + Queries.EXEC_SUFFIX)
                 yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query)
