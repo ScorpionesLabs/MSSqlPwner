@@ -205,7 +205,7 @@ class BaseSQLClient(object):
                     continue
                 new_inline_query = f"{impersonation_command}{utilities.escape_single_quotes(payload.group(1))}" \
                                    f"{Queries.REVERT_IMPERSONATION}"
-                impersonated_query = chained_query.replace(payload.matches[0],
+                impersonated_query = chained_query.replace(payload[0],
                                                            utilities.build_payload_from_template(
                                                                "[PAYLOAD]", new_inline_query,
                                                                len(chain_tree_ids) - i - 1))
