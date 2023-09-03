@@ -206,7 +206,7 @@ class BaseSQLClient(object):
 
     def build_chain(self, chain_id: str, query: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
-                    decode_results: bool = Truge, print_results: bool = False,
+                    decode_results: bool = True, print_results: bool = False,
                     adsi_provider: str = None, wait: bool = True,
                     indicates_success: list = None) -> Union[dict, utilities.CustomThread]:
         """
