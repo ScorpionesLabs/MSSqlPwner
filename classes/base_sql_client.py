@@ -36,7 +36,7 @@ class BaseSQLClient(object):
             "hostname": ""
         }
         self.threads = []
-        self.sub_uninformative_links = re.compile(r'\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)]')
+        self.sub_uninformative_links = re.compile(r'\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)\]')
 
     def connect(self, username: str, password: str, domain: str) -> bool:
         """
@@ -195,7 +195,7 @@ class BaseSQLClient(object):
             no_impersonation_query = chained_query.replace(impersonation_prefix, "")
             no_impersonation_query = no_impersonation_query.replace(impersonation_suffix, "")
             yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query)
-            catch_payload = re.compile(fr'\[{re.escape(link_name)}-IMPERSONATION-(?:COMMAND)](.*?)\[{re.escape(link_name)})-IMPERSONATION-(?:REVERT)]')
+            catch_payload = re.compile(fr'\[{re.escape(link_name)}-IMPERSONATION-(?:COMMAND)\](.*?)\[{re.escape(link_name)})-IMPERSONATION-(?:REVERT)\]')
             for impersonation_command in self.impersonate_as(chain_id):
 
                 payload = catch_payload.match(chained_query)
