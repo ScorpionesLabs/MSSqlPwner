@@ -195,10 +195,10 @@ class BaseSQLClient(object):
             no_impersonation_query = chained_query.replace(impersonation_prefix, "")
             no_impersonation_query = no_impersonation_query.replace(impersonation_suffix, "")
             yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query)
-            catch_payload = fr'\[{re.escape(link_name)}-IMPERSONATION-(?:COMMAND)](.*?)\[{re.escape(link_name)})-IMPERSONATION-(?:REVERT)]'
+            catch_payload = re.compile(fr'\[{re.escape(link_name)}-IMPERSONATION-(?:COMMAND)](.*?)\[{re.escape(link_name)})-IMPERSONATION-(?:REVERT)]')
             for impersonation_command in self.impersonate_as(chain_id):
 
-                payload = self.catch_impersonation_payload.match(chained_query)
+                payload = catch_payload.match(chained_query)
                 if not payload:
                     continue
                 new_inline_query = impersonation_command
