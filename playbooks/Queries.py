@@ -30,11 +30,11 @@ RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;
 
 # Custom assemblies queries
 IS_ASSEMBLY_EXISTS = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.assemblies WHERE name = '{asm_name}') THEN 'True' ELSE 'False' END as status;"
-ADD_CUSTOM_ASM = "EXEC('CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE;');"
+ADD_CUSTOM_ASM = "CREATE ASSEMBLY {asm_name} FROM {custom_asm} WITH PERMISSION_SET = UNSAFE;"
 IS_PROCEDURE_EXISTS = "SELECT CASE WHEN OBJECT_ID('{procedure_name}') IS NOT NULL THEN 'True' ELSE 'False' END as status;"
-CREATE_PROCEDURE = "EXEC('CREATE PROCEDURE [dbo].[{procedure_name}] @{arg} NVARCHAR (4000) AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];');"
+CREATE_PROCEDURE = "CREATE PROCEDURE [dbo].[{procedure_name}] @{arg} NVARCHAR (4000) AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];"
 IS_FUNCTION_EXISTS = "SELECT CASE WHEN OBJECT_ID('{function_name}') IS NOT NULL THEN 'True' ELSE 'False' END as status;"
-CREATE_FUNCTION = "EXEC('CREATE FUNCTION [dbo].{function_name}({arg}) RETURNS NVARCHAR(MAX) AS EXTERNAL NAME {asm_name}.[{namespace}.{class_name}].{function_name};');"
+CREATE_FUNCTION = "CREATE FUNCTION [dbo].{function_name}({arg}) RETURNS NVARCHAR(MAX) AS EXTERNAL NAME {asm_name}.[{namespace}.{class_name}].{function_name};"
 IS_MY_APP_TRUSTED = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.trusted_assemblies WHERE hash = {my_hash}) THEN 'True' ELSE 'False' END AS [status];"
 TRUST_MY_APP = "EXEC sp_add_trusted_assembly @hash = {my_hash}, @description = N'Trusted Assembly for My Application';"
 UNTRUST_MY_APP = "EXEC sp_drop_trusted_assembly @hash = {my_hash};"
@@ -43,8 +43,3 @@ DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
 FUNCTION_EXECUTION = "SELECT dbo.{function_name}({command});"
 LDAP_QUERY = "SELECT * FROM 'LDAP://localhost:{port}' "
-
-
-# For impersonation
-EXEC_PREFIX = "EXEC('"
-EXEC_SUFFIX = "');"
