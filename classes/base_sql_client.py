@@ -209,7 +209,7 @@ class BaseSQLClient(object):
                                                            utilities.build_payload_from_template(
                                                                "[PAYLOAD]", new_inline_query,
                                                                len(chain_tree_ids) - i - 1))
-                impersonated_query = impersonated_query.replace("[PAYLOAD]", "'[PAYLOAD]'")
+                impersonated_query = impersonated_query.replace("[PAYLOAD]", "''[PAYLOAD]''")
 
                 yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query)
         yield self.sub_uninformative_links.sub("", chained_query)
