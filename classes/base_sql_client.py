@@ -197,15 +197,16 @@ class BaseSQLClient(object):
 
             for impersonation_command in self.impersonate_as(chain_id):
                 impersonated_query = chained_query.replace(impersonation_prefix, utilities.build_payload_from_template(
-                    "[PAYLOAD]", impersonation_command,
+                    "[PAYLOAD]", impersonation_command + Queries.EXEC_PREFIX,
                     len(chain_tree_ids) - i - 1))
-                impersonated_query = impersonated_query.replace(impersonation_suffix, Queries.REVERT_IMPERSONATION)
+                impersonated_query = impersonated_query.replace(impersonation_suffix,
+                                                                Queries.REVERT_IMPERSONATION + Queries.EXEC_SUFFIX)
                 yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query)
         yield re.sub(r"\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)]", "", chained_query)
 
     def build_chain(self, chain_id: str, query: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
-                    decode_results: bool = True, print_results: bool = False,
+                    decode_results: bool = Truge, print_results: bool = False,
                     adsi_provider: str = None, wait: bool = True,
                     indicates_success: list = None) -> Union[dict, utilities.CustomThread]:
         """
