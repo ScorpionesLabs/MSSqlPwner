@@ -177,10 +177,10 @@ class BaseSQLClient(object):
 
         chain_tree = server_info['chain_tree']
         chained_query = utilities.build_query_chain(chain_tree, query, method)
-        for new_query in self.add_impersonation_to_chain(server_info['chain_tree_ids'], chained_query):
-            yield new_query, len(server_info['chain_tree_ids']) - 1
+        for new_query, total_added in self.add_impersonation_to_chain(server_info['chain_tree_ids'], chained_query):
+            yield new_query, len(server_info['chain_tree_ids']) + total_added - 1
 
-    def add_impersonation_to_chain(self, chain_tree_ids: list, chained_query):
+    def add_impersonation_to_chain(self, chain_tree_ids: list, chained_query, total_added: int = 0):
         """
         This function is responsible to add impersonation to the chained query.
         """
@@ -194,7 +194,7 @@ class BaseSQLClient(object):
                 continue
             no_impersonation_query = chained_query.replace(impersonation_prefix, "")
             no_impersonation_query = no_impersonation_query.replace(impersonation_suffix, "")
-            yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query)
+            yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query, total_added)
             catch_payload = re.compile(fr'{re.escape(impersonation_prefix)}(.*?){re.escape(impersonation_suffix)}')
             for impersonation_command in self.impersonate_as(chain_id):
 
@@ -209,10 +209,9 @@ class BaseSQLClient(object):
                                                            utilities.build_payload_from_template(
                                                                "[PAYLOAD]", new_inline_query,
                                                                len(chain_tree_ids) - i - 1))
-                impersonated_query = impersonated_query.replace("[PAYLOAD]", "''[PAYLOAD]''")
 
-                yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query)
-        yield self.sub_uninformative_links.sub("", chained_query)
+                yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query, total_added + 1)
+        yield self.sub_uninformative_links.sub("", chained_query), total_added
 
     def build_chain(self, chain_id: str, query: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
