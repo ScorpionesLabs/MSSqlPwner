@@ -43,3 +43,8 @@ DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
 FUNCTION_EXECUTION = "SELECT dbo.{function_name}({command});"
 LDAP_QUERY = "SELECT * FROM 'LDAP://localhost:{port}' "
+
+
+# For impersonation
+EXEC_PREFIX = "EXEC('"
+EXEC_SUFFIX = "');"

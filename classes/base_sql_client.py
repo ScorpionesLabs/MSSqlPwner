@@ -196,10 +196,12 @@ class BaseSQLClient(object):
             yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query)
 
             for impersonation_command in self.impersonate_as(chain_id):
-                impersonated_query = chained_query.replace(impersonation_prefix, utilities.build_payload_from_template(
-                    "[PAYLOAD]", impersonation_command,
-                    len(chain_tree_ids) - i - 1))
-                impersonated_query = impersonated_query.replace(impersonation_suffix, Queries.REVERT_IMPERSONATION)
+                impersonated_query = utilities.escape_single_quotes(
+                    chained_query.replace(impersonation_prefix, utilities.build_payload_from_template(
+                        "[PAYLOAD]", impersonation_command + Queries.EXEC_PREFIX,
+                        len(chain_tree_ids) - i - 1)))
+                impersonated_query = impersonated_query.replace(impersonation_suffix,
+                                                                Queries.REVERT_IMPERSONATION + Queries.EXEC_SUFFIX)
                 yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query)
         yield re.sub(r"\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)]", "", chained_query)
 
@@ -212,8 +214,7 @@ class BaseSQLClient(object):
          This function is responsible to build the query chain for the given query and method.
         """
         ret_val = {}
-        query_tpl = "EXEC('[PAYLOAD]');"
-        query = utilities.escape_single_quotes(query)
+        query_tpl = "[PAYLOAD]"
         if method == "blind_OpenQuery":
             query_tpl = f"SELECT 1; {query_tpl}"
         if adsi_provider:
