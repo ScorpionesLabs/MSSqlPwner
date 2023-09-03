@@ -203,8 +203,9 @@ class BaseSQLClient(object):
                 payload = self.catch_impersonation_payload.match(chained_query)
                 if not payload:
                     continue
-                new_inline_query = f"{impersonation_command}{utilities.escape_single_quotes(payload.group(1))}" \
-                                   f"{Queries.REVERT_IMPERSONATION}"
+                new_inline_query = impersonation_command
+                new_inline_query += f"{Queries.EXEC_PREFIX}{utilities.escape_single_quotes(payload.group(1))}')"
+                new_inline_query += f"{Queries.REVERT_IMPERSONATION}{Queries.EXEC_SUFFIX}"
                 impersonated_query = chained_query.replace(payload[0],
                                                            utilities.build_payload_from_template(
                                                                "[PAYLOAD]", new_inline_query,
