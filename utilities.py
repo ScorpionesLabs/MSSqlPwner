@@ -396,6 +396,10 @@ def generate_arg_parser():
                             default='execute_command')
     custom_asm.add_argument("command", help="Command to execute")
 
+    inject_custom_asm = modules.add_parser('inject-custom-asm', help='Code injection using custom assembly')
+    inject_custom_asm.add_argument("file_location", type=str, help='File location to inject')
+    inject_custom_asm.add_argument("-procedure-name", type=str, default='Inject')
+
     direct_query = modules.add_parser('direct_query', help='Execute direct query')
     direct_query.add_argument("query", help="Query to execute")
     direct_query.add_argument("-method", choices=['OpenQuery', 'exec_at'], default='OpenQuery')

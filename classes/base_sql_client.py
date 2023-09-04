@@ -61,7 +61,7 @@ class BaseSQLClient(object):
         """
         This function is responsible to execute the given query.
         """
-        query = f"REVERT; {query}"
+        query = f"{Queries.REVERT} {query}"
         self.ms_sql.sendTDS(TDS_SQL_BATCH, (query + '\r\n').encode('utf-16le'))
         if self.debug:
             LOG.info(f"Query: {query}")
@@ -84,7 +84,7 @@ class BaseSQLClient(object):
         if th.is_alive():
             if not wait:
                 return utilities.return_result(True, "Query Timed-out", [], th)
-            return utilities.return_result(True, "Query Timed-out", [])
+            ret_val = th.join()
         if indicates_success and utilities.is_string_in_lists(indicates_success, ret_val['replay']):
             ret_val['is_success'] = True
         return ret_val

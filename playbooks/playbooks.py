@@ -288,7 +288,18 @@ class Playbooks(Operations):
 
         asm_filename = "CmdExec-x64.dll" if arch_name == 'x64' else "CmdExec-x86.dll"
         file_location = os.path.join(self.custom_asm_directory, asm_filename)
-        return self.execute_custom_assembly_procedure(chain_id, file_location, procedure_name, command, "CalcAsm")
+        return self.execute_custom_assembly_procedure(chain_id, file_location, procedure_name, command, "CalcAsm",
+                                                      "@command NVARCHAR (4000)")
+
+    def inject_custom_asm(self, chain_id: str, file_location: str, procedure_name: str = "Inject") -> bool:
+        if not file_location:
+            LOG.error("File location is required for inject-custom-asm module")
+            return False
+        if not os.path.exists(file_location):
+            LOG.error(f"{file_location} does not exist")
+            return False
+        return self.execute_custom_assembly_procedure(chain_id, file_location, procedure_name, "a", "SqlInject",
+                                                      "@command NVARCHAR (4000)")
 
     def encapsulated_commands(self, chain_id: str, options):
         ret_val = False
@@ -301,6 +312,8 @@ class Playbooks(Operations):
 
             elif options.module == 'custom-asm':
                 ret_val = self.custom_asm(chain_id, options.arch, options.procedure_name, options.command)
+            elif options.module == 'inject-custom-asm':
+                self.inject_custom_asm(chain_id, options.file_location, options.procedure_name)
 
             elif options.module == 'direct_query':
                 ret_val = self.execute_direct_query(chain_id, options.method, options.query)

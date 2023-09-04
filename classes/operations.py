@@ -508,7 +508,7 @@ class Operations(BaseSQLClient):
         return True
 
     def execute_custom_assembly_procedure(self, chain_id: str, asm_file_location: str, procedure_name: str,
-                                          command: str, asm_name: str) -> bool:
+                                          command: str, asm_name: str, args: str) -> bool:
         """
         This function is responsible to execute a custom assembly.
         In general this function is starts with creates the assembly, trust it, create the procedure and execute it.
@@ -523,7 +523,7 @@ class Operations(BaseSQLClient):
         else:
             add_procedure = self.build_chain(chain_id,
                                              utilities.format_strings(Queries.CREATE_PROCEDURE, asm_name=asm_name,
-                                                                      procedure_name=procedure_name, arg='command'),
+                                                                      procedure_name=procedure_name, arg=args),
                                              method="exec_at", indicates_success=['is already an object named'])
 
             if not add_procedure['is_success']:
@@ -589,7 +589,6 @@ class Operations(BaseSQLClient):
         server_info = self.state['servers_info'][chain_id]
         for principal_type in ['server', 'database']:
             for user in server_info[f'{principal_type}_principals']:
-                # Log the server principal in order to avoid infinite loop
                 if principal_type == 'server':
                     query = utilities.format_strings(Queries.IMPERSONATE_AS_SERVER_PRINCIPAL, username=user)
                 else:
