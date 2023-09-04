@@ -121,7 +121,7 @@ class Playbooks(Operations):
                         ["y", "n"], 'y'):
                     continue
             listener = self.execute_custom_assembly_function(chain_id, ldap_assembly, "listen", "LdapSrv",
-                                                             "ldapAssembly", str(port), wait=False)
+                                                             "ldapAssembly", str(port), "FuncAsm", wait=False)
 
             if listener and listener['is_success']:
                 client = Playbooks(self.server_address, self.username, self.options)
@@ -131,8 +131,8 @@ class Playbooks(Operations):
                 client.state = self.state
                 LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
                 client.options.debug = self.options.debug
-                client.build_chain(chain_id, Queries.LDAP_QUERY.format(port=port), method="OpenQuery",
-                                   adsi_provider=discovered_provider)
+                client.build_chain(chain_id, utilities.format_strings(Queries.LDAP_QUERY, port=port),
+                                   method="OpenQuery", adsi_provider=discovered_provider)
 
                 client.disconnect(rev2self=False)
                 results = listener['thread'].join()
@@ -250,7 +250,7 @@ class Playbooks(Operations):
                 elif args_list == "help":
                     parser.print_help()
                     continue
-                arguments = utilities.split_exclude_quotes(f'{" ".join(sys.argv[1:]).strip()} {args_list}')
+                arguments = utilities.split_args(f'{" ".join(sys.argv[1:]).strip()} {args_list}')
                 arguments.remove("interactive")
                 args = parser.parse_args(arguments)
                 if args.module == "enumerate":

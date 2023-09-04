@@ -8,8 +8,6 @@ __email__ = ['El3ct71k@gmail.com']
 
 import copy
 import logging
-import re
-
 import utilities
 from impacket import tds
 from impacket import LOG
@@ -36,7 +34,6 @@ class BaseSQLClient(object):
             "hostname": ""
         }
         self.threads = []
-        self.sub_uninformative_links = re.compile(r'\[([a-zA-Z0-9.]{1,50}-\d{1,50})-IMPERSONATION-(COMMAND|REVERT)]')
 
     def connect(self, username: str, password: str, domain: str) -> bool:
         """
@@ -64,7 +61,7 @@ class BaseSQLClient(object):
         """
         This function is responsible to execute the given query.
         """
-        query = f"{Queries.REVERT_IMPERSONATION} {query}"
+        query = f"REVERT; {query}"
         self.ms_sql.sendTDS(TDS_SQL_BATCH, (query + '\r\n').encode('utf-16le'))
         if self.debug:
             LOG.info(f"Query: {query}")
@@ -158,6 +155,30 @@ class BaseSQLClient(object):
 
         return ret_val
 
+    def build_query_chain(self, chain_tree: list, chain_tree_ids: list, query: str,
+                          method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> list:
+        """
+        This function is responsible to build a query chain.
+        """
+
+        if not chain_tree:
+            yield query
+            return
+
+        link_name = chain_tree.pop()
+        new_query = utilities.link_query(link_name, query, method) if len(chain_tree) > 0 else query
+        yield from self.build_query_chain(chain_tree, chain_tree_ids, new_query, method)
+
+        for i, chain_id in enumerate(chain_tree_ids):
+            server_info = self.state['servers_info'][chain_id]
+            if server_info['link_name'] != link_name:
+                continue
+
+            for imp_query in self.impersonate_as(chain_id):
+                new_imp_query = utilities.replace_strings(imp_query, {"[QUERY]": new_query})
+
+                yield from self.build_query_chain(chain_tree, chain_tree_ids, new_imp_query, method)
+
     def generate_query(self, chain_id: str, query: str,
                        method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery") -> list:
         """
@@ -170,48 +191,11 @@ class BaseSQLClient(object):
         """
 
         if not chain_id:
-            yield query, 0
+            yield query
             return
 
         server_info = copy.deepcopy(self.state['servers_info'][chain_id])
-
-        chain_tree = server_info['chain_tree']
-        chained_query = utilities.build_query_chain(chain_tree, query, method)
-        for new_query, total_added in self.add_impersonation_to_chain(server_info['chain_tree_ids'], chained_query):
-            yield new_query, len(server_info['chain_tree_ids']) + total_added - 1
-
-    def add_impersonation_to_chain(self, chain_tree_ids: list, chained_query, total_added: int = 0):
-        """
-        This function is responsible to add impersonation to the chained query.
-        """
-
-        for i, chain_id in enumerate(reversed(chain_tree_ids)):
-            server_info = self.state['servers_info'][chain_id]
-            link_name = server_info['link_name']
-            impersonation_prefix = f"[{link_name}-{i}-IMPERSONATION-COMMAND]"
-            impersonation_suffix = f"[{link_name}-{i}-IMPERSONATION-REVERT]"
-            if impersonation_prefix not in chained_query:
-                continue
-            no_impersonation_query = chained_query.replace(impersonation_prefix, "")
-            no_impersonation_query = no_impersonation_query.replace(impersonation_suffix, "")
-            yield from self.add_impersonation_to_chain(chain_tree_ids, no_impersonation_query, total_added)
-            catch_payload = re.compile(fr'{re.escape(impersonation_prefix)}(.*?){re.escape(impersonation_suffix)}')
-            for impersonation_command in self.impersonate_as(chain_id):
-
-                payload = catch_payload.match(chained_query)
-                if not payload:
-                    continue
-                new_inline_query = impersonation_command
-                new_inline_query += f"{Queries.EXEC_PREFIX}"
-                new_inline_query += utilities.escape_single_quotes(payload.group(1))
-                new_inline_query += f"{Queries.EXEC_SUFFIX}{Queries.REVERT_IMPERSONATION}"
-                impersonated_query = chained_query.replace(payload[0],
-                                                           utilities.build_payload_from_template(
-                                                               "[PAYLOAD]", new_inline_query,
-                                                               len(chain_tree_ids) - i - 1))
-
-                yield from self.add_impersonation_to_chain(chain_tree_ids, impersonated_query, total_added + 1)
-        yield self.sub_uninformative_links.sub("", chained_query), total_added
+        yield from self.build_query_chain(server_info['chain_tree'], server_info['chain_tree_ids'], query, method)
 
     def build_chain(self, chain_id: str, query: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
@@ -222,18 +206,19 @@ class BaseSQLClient(object):
          This function is responsible to build the query chain for the given query and method.
         """
         ret_val = {}
+        if not indicates_success:
+            indicates_success = []
+        # indicates_success.append('Deferred prepare could not be completed')
         query_tpl = "[PAYLOAD]"
         if method == "blind_OpenQuery":
             query_tpl = f"SELECT 1; {query_tpl}"
         if adsi_provider:
-            query_tpl = utilities.build_query_chain(adsi_provider, query_tpl, method)
-        for query_tpl, i in self.generate_query(chain_id, query_tpl, method):
-            chained_query = utilities.build_payload_from_template("[PAYLOAD]", query, i)
-            chained_query = query_tpl.replace("[PAYLOAD]", chained_query)
+            query_tpl = utilities.link_query(adsi_provider, query_tpl, method)
+        for query_tpl in self.generate_query(chain_id, query_tpl, method):
+            chained_query = utilities.replace_strings(query_tpl, {"[PAYLOAD]": query})
             ret_val = self.custom_sql_query(chained_query, print_results=print_results, decode_results=decode_results,
                                             wait=wait, indicates_success=indicates_success)
             ret_val['template'] = query_tpl
-            ret_val['iterations'] = i
             if ret_val['is_success']:
                 return ret_val
         return ret_val

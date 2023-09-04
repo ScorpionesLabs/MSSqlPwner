@@ -133,6 +133,62 @@ def escape_single_quotes(query: str) -> str:
     return query.replace("'", "''")
 
 
+def escape_double_quotes(query: str) -> str:
+    """
+    This function is responsible to escape double quotes.
+    """
+    return query.replace('"', '""')
+
+
+def _count_quotes(string, index, quote_type):
+    """
+    This inline-used function is responsible to count the number of quotes.
+    """
+    count = 0
+    for i in range(index, 0, -1):
+        if string[i] != quote_type:
+            break
+        count += 1
+    return count
+
+
+def count_quotes(string, index_to_find, quote_type):
+    """
+    This function is responsible to count the number of quotes.
+    """
+    container = string.replace(" ", "")
+    try:
+        index = container.index(index_to_find)
+        if container[index - 1] == quote_type and container[index + len(index_to_find)] == quote_type:
+            return int(_count_quotes(container, index - 1, quote_type) / 2) + 1
+        return 0
+    except ValueError:
+        return 0
+
+
+def format_strings(template, **kwargs):
+    """
+    This function is responsible to format the strings and add relevant amount of quotes.
+    """
+    for k, v in kwargs.items():
+        for quote_type in ["'", '"']:
+            for _ in range(count_quotes(template, f"{{{k}}}", quote_type)):
+                kwargs[k] = escape_single_quotes(v) if quote_type == "'" else escape_double_quotes(v)
+    return template.format(**kwargs)
+
+
+def replace_strings(template, dict_of_replacements):
+    """
+    This function is responsible to replace the strings and add relevant amount of quotes.
+    """
+    for find, replace in dict_of_replacements.items():
+        for quote_type in ["'", '"']:
+            for _ in range(count_quotes(template, find, quote_type)):
+                replace = escape_single_quotes(replace) if quote_type == "'" else escape_double_quotes(replace)
+        template = template.replace(find, replace)
+    return template
+
+
 def store_state(filename, state) -> None:
     """
     This function is responsible to store the current state.
@@ -196,17 +252,7 @@ def build_openquery(linked_server: str, query: str) -> str:
     This function is responsible to embed a query within OpenQuery.
     OpenQuery executes a specified pass-through query on the specified linked server
     """
-    return Queries.OPENQUERY.format(linked_server=linked_server, query=escape_single_quotes(query))
-
-
-def build_payload_from_template(template: str, payload: str, iterations: int) -> str:
-    """
-    This function is responsible to build a payload from a template.
-    """
-
-    for _ in range(iterations):
-        payload = escape_single_quotes(payload)
-    return template.replace("[PAYLOAD]", payload)
+    return format_strings(Queries.OPENQUERY, linked_server=linked_server, query=query)
 
 
 def build_exec_at(linked_server: str, query: str) -> str:
@@ -215,28 +261,19 @@ def build_exec_at(linked_server: str, query: str) -> str:
     exec executes a command string or character string within a Transact-SQL batch.
     This function uses the "at" argument to refer the query to another linked server.
     """
-    return Queries.EXEC_AT.format(linked_server=linked_server, query=escape_single_quotes(query))
+    return format_strings(Queries.EXEC_AT, linked_server=linked_server, query=query)
 
 
-def build_query_chain(chain_tree, query: str, method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> str:
+def link_query(link: str, query: str, method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> str:
     """
-    This function is responsible to build a query chain.
+    This function is responsible to link a query to a linked server.
     """
     method_func = build_exec_at if method == "exec_at" else build_openquery
-    chained_query = query
-
-    for i, link in enumerate(reversed(chain_tree)):  # Iterates over the linked servers
-        prefix = f"[{link}-{i}-IMPERSONATION-COMMAND]"
-        suffix = f"[{link}-{i}-IMPERSONATION-REVERT]"
-        chained_query = f"{prefix}{chained_query}{suffix}"
-        if i == len(chain_tree)-1:
-            continue
-        chained_query = method_func(link, chained_query)
-    return chained_query
+    return method_func(link, query)
 
 
 def return_result(status, replay, result, th: Union[None, CustomThread] = None):
-    return {"is_success": status, "replay": replay, "results": result, "template": "", "iterations": 0, "thread": th}
+    return {"is_success": status, "replay": replay, "results": result, "template": "", "thread": th}
 
 
 def calculate_sha512_hash(file_path: str) -> str:
@@ -274,7 +311,7 @@ class MyArgumentParser(argparse.ArgumentParser):
         return
 
 
-def split_exclude_quotes(s):
+def split_args(s):
     # Match quoted strings and non-quoted parts
     pattern = r'"([^"]*)"|\'([^\']*)\'|([^"\' ]+)'
     parts = re.findall(pattern, s)
