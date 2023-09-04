@@ -126,18 +126,22 @@ def retrieve_procedure_custom_name(procedure_name: str) -> str:
     return procedure_name
 
 
-def escape_single_quotes(query: str) -> str:
+def escape_single_quotes(query: str, amount: int) -> str:
     """
     This function is responsible to escape single quotes.
     """
-    return query.replace("'", "''")
+    if amount <= 1:
+        return query
+    return query.replace("'", "'" * amount)
 
 
-def escape_double_quotes(query: str) -> str:
+def escape_double_quotes(query: str, amount:  int) -> str:
     """
     This function is responsible to escape double quotes.
     """
-    return query.replace('"', '""')
+    if amount <= 1:
+        return query
+    return query.replace('"', '"' * amount)
 
 
 def _count_quotes(string, index, quote_type):
@@ -160,7 +164,8 @@ def count_quotes(string, index_to_find, quote_type):
     try:
         index = container.index(index_to_find)
         if container[index - 1] == quote_type and container[index + len(index_to_find)] == quote_type:
-            return int(_count_quotes(container, index - 1, quote_type) / 2) + 1
+            amount = _count_quotes(container, index - 1, quote_type)
+            return amount * 2
         return 0
     except ValueError:
         return 0
@@ -172,8 +177,11 @@ def format_strings(template, **kwargs):
     """
     for k, v in kwargs.items():
         for quote_type in ["'", '"']:
-            for _ in range(count_quotes(template, f"{{{k}}}", quote_type)):
-                kwargs[k] = escape_single_quotes(v) if quote_type == "'" else escape_double_quotes(v)
+            amount = count_quotes(template, f"{{{k}}}", quote_type)
+            if quote_type == "'":
+                kwargs[k] = escape_single_quotes(kwargs[k], amount)
+            else:
+                kwargs[k] = escape_double_quotes(kwargs[k], amount)
     return template.format(**kwargs)
 
 
@@ -183,9 +191,12 @@ def replace_strings(template, dict_of_replacements):
     """
     for find, replace in dict_of_replacements.items():
         for quote_type in ["'", '"']:
-            for _ in range(count_quotes(template, find, quote_type)):
-                replace = escape_single_quotes(replace) if quote_type == "'" else escape_double_quotes(replace)
-        template = template.replace(find, replace)
+            amount = count_quotes(template, find, quote_type)
+            if quote_type == "'":
+                replace = escape_single_quotes(replace, amount)
+            else:
+                replace = escape_double_quotes(replace, amount)
+            template = template.replace(find, replace)
     return template
 
 
