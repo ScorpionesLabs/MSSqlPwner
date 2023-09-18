@@ -149,7 +149,7 @@ class BaseSQLClient(object):
         ret_val = self._parse_logs(decode_results=decode_results)
         if self.debug:
             LOG.info(ret_val['replay'])
-        if print_results:
+        if print_results or self.debug:
             LOG.info(ret_val['results'])
             pass
 

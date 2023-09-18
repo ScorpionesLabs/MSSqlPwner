@@ -389,14 +389,8 @@ class Operations(BaseSQLClient):
         if is_procedure_enabled['results'] and is_procedure_enabled['results'][-1]['procedure'] != str(required_status):
             LOG.warning(
                 f"{procedure} need to be changed (Resulted status: {is_procedure_enabled['results'][-1]['procedure']})")
-            if not self.is_privileged_user(chain_id, 'server'):
-                is_procedure_can_be_configured = self.build_chain(chain_id, Queries.IS_UPDATE_SP_CONFIGURE_ALLOWED)
-                if (not is_procedure_can_be_configured['is_success']) or \
-                        is_procedure_can_be_configured['results'][0]['CanChangeConfiguration'] == 'False':
-                    LOG.error(f"Cant fetch sp_configure status")
-                    return False
 
-            LOG.info(f"{procedure} can be configured")
+            LOG.info(f"{procedure} needs to be configured")
             status = 1 if required_status else 0
             rev2self_status = 0 if required_status else 1
             reconfigure_procedure_query = utilities.format_strings(Queries.RECONFIGURE_PROCEDURE,

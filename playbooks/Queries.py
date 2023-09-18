@@ -19,7 +19,6 @@ SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domai
 TRUSTWORTHY_DB_LIST = "SELECT name AS 'name' FROM sys.databases WHERE is_trustworthy_on = 1;"
 
 # Permission checks
-IS_UPDATE_SP_CONFIGURE_ALLOWED = "SELECT IIF(HAS_PERMS_BY_NAME('sp_configure', 'OBJECT', 'ALTER', SYSTEM_USER) = 1, 'True', 'False') AS [CanChangeConfiguration];"
 IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
 IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure}') = 1 THEN 'True' ELSE 'False' END AS [procedure];"
 
