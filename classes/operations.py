@@ -233,7 +233,7 @@ class Operations(BaseSQLClient):
             "server_roles": Queries.GET_USER_SERVER_ROLES,
             "db_roles": Queries.GET_USER_DATABASE_ROLES,
             "server_principals": Queries.CAN_IMPERSONATE_AS_SERVER_PRINCIPAL,
-            "db_principals": Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL
+            "database_principals": Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL
         }
         required_queries = ["server_information"]
         dict_results = {}
@@ -296,8 +296,8 @@ class Operations(BaseSQLClient):
                 LOG.info(f"Discovered server principal: {server_principal['username']} on {chain_str}")
                 chain_id = self.add_to_server_state(chain_id, "server_principals", server_principal['username'])
 
-        if 'db_principals' in dict_results.keys():
-            for db_principal in dict_results['db_principals']:
+        if 'database_principals' in dict_results.keys():
+            for db_principal in dict_results['database_principals']:
                 if db_principal['username'] == db_user:
                     continue
 

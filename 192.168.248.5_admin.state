@@ -1,0 +1,964 @@
+{
+    "servers_info": {
+        "ddbccc72-42d7-4001-89de-6a67218545e3": {
+            "hostname": "DC01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\admin@master/guest\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "ddbccc72-42d7-4001-89de-6a67218545e3"
+                ]
+            ],
+            "db_user": "guest",
+            "db_name": "master",
+            "server_user": "CORP1\\admin",
+            "link_name": "DC01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "ddbccc72-42d7-4001-89de-6a67218545e3",
+            "server_principals": [
+                "sa"
+            ],
+            "database_principals": [
+                "dbo"
+            ],
+            "server_roles": [],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [],
+            "walkthrough_history": [],
+            "cloned_from": ""
+        },
+        "0026fb55-32cd-4b97-bc40-a60cb64c1094": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\admin@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "ddbccc72-42d7-4001-89de-6a67218545e3"
+                ],
+                [
+                    "APPSRV01",
+                    "0026fb55-32cd-4b97-bc40-a60cb64c1094"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "0026fb55-32cd-4b97-bc40-a60cb64c1094",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [],
+            "walkthrough_history": [],
+            "cloned_from": ""
+        },
+        "1014a976-ce18-483c-87a9-33aef7645971": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\admin@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "ddbccc72-42d7-4001-89de-6a67218545e3"
+                ],
+                [
+                    "APPSRV01",
+                    "1014a976-ce18-483c-87a9-33aef7645971"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "APPSRV01\\Administrator",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "1014a976-ce18-483c-87a9-33aef7645971",
+            "server_principals": [
+                "sa"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "cloned_from": "0026fb55-32cd-4b97-bc40-a60cb64c1094"
+        },
+        "3b181530-56e1-444f-b7ab-0e969ff6fa27": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\admin@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "ddbccc72-42d7-4001-89de-6a67218545e3"
+                ],
+                [
+                    "APPSRV01",
+                    "3b181530-56e1-444f-b7ab-0e969ff6fa27"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "3b181530-56e1-444f-b7ab-0e969ff6fa27",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ],
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "cloned_from": "1014a976-ce18-483c-87a9-33aef7645971"
+        },
+        "75758faf-383e-4702-ba0a-b122e288cc26": {
+            "hostname": "DC01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "75758faf-383e-4702-ba0a-b122e288cc26"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "DC01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "75758faf-383e-4702-ba0a-b122e288cc26",
+            "server_principals": [
+                "YourLoginName2",
+                "YourLoginName",
+                "CORP1\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "cloned_from": "ddbccc72-42d7-4001-89de-6a67218545e3"
+        },
+        "aebcec1b-8217-46d9-9abd-b5739b2fa23a": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "75758faf-383e-4702-ba0a-b122e288cc26"
+                ],
+                [
+                    "APPSRV01",
+                    "aebcec1b-8217-46d9-9abd-b5739b2fa23a"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "aebcec1b-8217-46d9-9abd-b5739b2fa23a",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [],
+            "walkthrough_history": [],
+            "cloned_from": ""
+        },
+        "b25c814a-a6bf-4def-a91d-ba9c6b6221fb": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "75758faf-383e-4702-ba0a-b122e288cc26"
+                ],
+                [
+                    "APPSRV01",
+                    "b25c814a-a6bf-4def-a91d-ba9c6b6221fb"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "APPSRV01\\Administrator",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "b25c814a-a6bf-4def-a91d-ba9c6b6221fb",
+            "server_principals": [
+                "sa"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "cloned_from": "aebcec1b-8217-46d9-9abd-b5739b2fa23a"
+        },
+        "2616d05d-c6d5-49c9-a2c3-90dc8e768c1b": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "75758faf-383e-4702-ba0a-b122e288cc26"
+                ],
+                [
+                    "APPSRV01",
+                    "2616d05d-c6d5-49c9-a2c3-90dc8e768c1b"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "2616d05d-c6d5-49c9-a2c3-90dc8e768c1b",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ],
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "cloned_from": "b25c814a-a6bf-4def-a91d-ba9c6b6221fb"
+        },
+        "dba00db4-40c6-4417-9159-463dfbc18929": {
+            "hostname": "DC01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName2>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName2@master/guest\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "dba00db4-40c6-4417-9159-463dfbc18929"
+                ]
+            ],
+            "db_user": "guest",
+            "db_name": "master",
+            "server_user": "YourLoginName2",
+            "link_name": "DC01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "dba00db4-40c6-4417-9159-463dfbc18929",
+            "server_principals": [
+                "YourLoginName"
+            ],
+            "database_principals": [],
+            "server_roles": [],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "sa"
+                ],
+                [
+                    "server",
+                    "YourLoginName2"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "YourLoginName2"
+                ]
+            ],
+            "cloned_from": "75758faf-383e-4702-ba0a-b122e288cc26"
+        },
+        "04bac452-7b57-41c3-993c-7c8d87aada74": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName2>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName2@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "dba00db4-40c6-4417-9159-463dfbc18929"
+                ],
+                [
+                    "APPSRV01",
+                    "04bac452-7b57-41c3-993c-7c8d87aada74"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "04bac452-7b57-41c3-993c-7c8d87aada74",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [],
+            "walkthrough_history": [],
+            "cloned_from": ""
+        },
+        "beba61a8-ae7f-4f92-b473-ae872f6e69f6": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName2>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName2@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "dba00db4-40c6-4417-9159-463dfbc18929"
+                ],
+                [
+                    "APPSRV01",
+                    "beba61a8-ae7f-4f92-b473-ae872f6e69f6"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "APPSRV01\\Administrator",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "beba61a8-ae7f-4f92-b473-ae872f6e69f6",
+            "server_principals": [
+                "sa"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "cloned_from": "04bac452-7b57-41c3-993c-7c8d87aada74"
+        },
+        "583e7592-f997-4984-b654-2c7f43dcde63": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName2>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName2@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "dba00db4-40c6-4417-9159-463dfbc18929"
+                ],
+                [
+                    "APPSRV01",
+                    "583e7592-f997-4984-b654-2c7f43dcde63"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "583e7592-f997-4984-b654-2c7f43dcde63",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ],
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "cloned_from": "beba61a8-ae7f-4f92-b473-ae872f6e69f6"
+        },
+        "0bd60e6e-d4f5-429a-b4e8-c9e79a63110c": {
+            "hostname": "DC01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName@master/guest\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "0bd60e6e-d4f5-429a-b4e8-c9e79a63110c"
+                ]
+            ],
+            "db_user": "guest",
+            "db_name": "master",
+            "server_user": "YourLoginName",
+            "link_name": "DC01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "0bd60e6e-d4f5-429a-b4e8-c9e79a63110c",
+            "server_principals": [],
+            "database_principals": [],
+            "server_roles": [],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "sa"
+                ],
+                [
+                    "server",
+                    "YourLoginName"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "YourLoginName"
+                ]
+            ],
+            "cloned_from": "75758faf-383e-4702-ba0a-b122e288cc26"
+        },
+        "cf6897a3-88e1-41ba-a418-4da419d0cbdd": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "0bd60e6e-d4f5-429a-b4e8-c9e79a63110c"
+                ],
+                [
+                    "APPSRV01",
+                    "cf6897a3-88e1-41ba-a418-4da419d0cbdd"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "cf6897a3-88e1-41ba-a418-4da419d0cbdd",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [],
+            "walkthrough_history": [],
+            "cloned_from": ""
+        },
+        "cc1eb50b-82ce-4aba-bfae-e0c38f905286": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "0bd60e6e-d4f5-429a-b4e8-c9e79a63110c"
+                ],
+                [
+                    "APPSRV01",
+                    "cc1eb50b-82ce-4aba-bfae-e0c38f905286"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "APPSRV01\\Administrator",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "cc1eb50b-82ce-4aba-bfae-e0c38f905286",
+            "server_principals": [
+                "sa"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "cloned_from": "cf6897a3-88e1-41ba-a418-4da419d0cbdd"
+        },
+        "50e46d01-87ff-4ea7-9b24-28b4aeab8c4d": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mYourLoginName>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mYourLoginName@master/guest\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "0bd60e6e-d4f5-429a-b4e8-c9e79a63110c"
+                ],
+                [
+                    "APPSRV01",
+                    "50e46d01-87ff-4ea7-9b24-28b4aeab8c4d"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "50e46d01-87ff-4ea7-9b24-28b4aeab8c4d",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ],
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "cloned_from": "cc1eb50b-82ce-4aba-bfae-e0c38f905286"
+        },
+        "3709d977-a773-40ad-9c9e-8b2724178ea2": {
+            "hostname": "DC01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\Administrator>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mCORP1\\Administrator@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "3709d977-a773-40ad-9c9e-8b2724178ea2"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "CORP1\\Administrator",
+            "link_name": "DC01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "3709d977-a773-40ad-9c9e-8b2724178ea2",
+            "server_principals": [
+                "sa",
+                "YourLoginName2",
+                "YourLoginName"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "sa"
+                ],
+                [
+                    "server",
+                    "CORP1\\Administrator"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "CORP1\\Administrator"
+                ]
+            ],
+            "cloned_from": "75758faf-383e-4702-ba0a-b122e288cc26"
+        },
+        "4b63923f-5761-49d0-90d1-1b260100f1a1": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\Administrator>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mCORP1\\Administrator@master/dbo\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "3709d977-a773-40ad-9c9e-8b2724178ea2"
+                ],
+                [
+                    "APPSRV01",
+                    "4b63923f-5761-49d0-90d1-1b260100f1a1"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "4b63923f-5761-49d0-90d1-1b260100f1a1",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [],
+            "walkthrough_history": [],
+            "cloned_from": ""
+        },
+        "149dbfc9-a59a-4171-95df-2214e826e86e": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\Administrator>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mCORP1\\Administrator@master/dbo\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "3709d977-a773-40ad-9c9e-8b2724178ea2"
+                ],
+                [
+                    "APPSRV01",
+                    "149dbfc9-a59a-4171-95df-2214e826e86e"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "APPSRV01\\Administrator",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "149dbfc9-a59a-4171-95df-2214e826e86e",
+            "server_principals": [
+                "sa"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ]
+            ],
+            "cloned_from": "4b63923f-5761-49d0-90d1-1b260100f1a1"
+        },
+        "63763268-44f5-4732-9204-7b01f314694c": {
+            "hostname": "APPSRV01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36mCORP1\\Administrator>\u001b[31mI:\u001b[0msa>\u001b[31mI:\u001b[0mCORP1\\Administrator@master/dbo\u001b[0m) -> \u001b[32mAPPSRV01\u001b[0m (\u001b[36msa>\u001b[31mI:\u001b[0mAPPSRV01\\Administrator>\u001b[31mI:\u001b[0msa@master/dbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "3709d977-a773-40ad-9c9e-8b2724178ea2"
+                ],
+                [
+                    "APPSRV01",
+                    "63763268-44f5-4732-9204-7b01f314694c"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "APPSRV01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "63763268-44f5-4732-9204-7b01f314694c",
+            "server_principals": [
+                "APPSRV01\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "server",
+                    "APPSRV01\\Administrator"
+                ],
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "server",
+                    "sa"
+                ]
+            ],
+            "cloned_from": "149dbfc9-a59a-4171-95df-2214e826e86e"
+        },
+        "17aeed97-e798-49a8-88c5-708bebc6900e": {
+            "hostname": "DC01",
+            "chain_str": "\u001b[32mDC01\u001b[0m (\u001b[36msa@master/dbo>\u001b[31mI:\u001b[0mdbo\u001b[0m)",
+            "chain_tree": [
+                [
+                    "DC01",
+                    "17aeed97-e798-49a8-88c5-708bebc6900e"
+                ]
+            ],
+            "db_user": "dbo",
+            "db_name": "master",
+            "server_user": "sa",
+            "link_name": "DC01",
+            "instance_name": "SQLEXPRESS",
+            "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5 (X64) \n\tSep 24 2019 13:48:23 \n\tCopyright (C) 2019 Microsoft Corporation\n\tExpress Edition (64-bit) on Windows Server 2019 Standard 10.0 <X64> (Build 17763: ) (Hypervisor)\n",
+            "domain_name": "CORP1",
+            "chain_id": "17aeed97-e798-49a8-88c5-708bebc6900e",
+            "server_principals": [
+                "YourLoginName2",
+                "YourLoginName",
+                "CORP1\\Administrator"
+            ],
+            "database_principals": [],
+            "server_roles": [
+                "sysadmin"
+            ],
+            "database_roles": [
+                "db_owner"
+            ],
+            "trustworthy_db_list": [
+                "msdb"
+            ],
+            "adsi_providers": [],
+            "walkthrough": [
+                [
+                    "database",
+                    "dbo"
+                ]
+            ],
+            "walkthrough_history": [
+                [
+                    "database",
+                    "dbo"
+                ]
+            ],
+            "cloned_from": "ddbccc72-42d7-4001-89de-6a67218545e3"
+        }
+    },
+    "hostname": "DC01"
+}
