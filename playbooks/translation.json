@@ -4,6 +4,7 @@
   "hostname": "Hostname",
   "chain_id": "Chain ID",
   "db_user": "Database User",
+  "db_name": "Database Name",
   "server_user": "Server User",
   "instance_name": "Instance Name",
   "version": "Version",
@@ -13,5 +14,6 @@
   "server_roles": "Our use is member of these server roles",
   "database_roles": "Our user is member of these database roles",
   "trustworthy_db_list": "These databases are trustworthy",
-  "adsi_providers": "These ADSI providers can retrieve passwords for us"
+  "adsi_providers": "These ADSI providers can retrieve passwords for us",
+  "available_databases": "These databases are available"
 }

@@ -46,6 +46,7 @@ class Playbooks(Operations):
         else:
             for chain_id in self.retrieve_server_information(None, None):
                 self.retrieve_links(chain_id)
+        self.delete_non_relevant_chains()
 
         utilities.store_state(self.state_filename, self.state)
         utilities.print_state(self.state)

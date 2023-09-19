@@ -32,7 +32,8 @@ class Operations(BaseSQLClient):
         self.max_impersonation_depth = args_options.max_impersonation_depth
         self.auto_yes = args_options.auto_yes
         self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
-        self.principals_history = []
+        self.operations_history = []
+        self.deletion_list = set()
 
     def clone_chain_id(self, chain_id: str) -> str:
         """
@@ -66,6 +67,7 @@ class Operations(BaseSQLClient):
                 "instance_name": "",
                 "version": "",
                 "domain_name": "",
+                "available_databases": set(),
                 "chain_id": chain_id,
                 "server_principals": set(),
                 "database_principals": set(),
@@ -74,7 +76,6 @@ class Operations(BaseSQLClient):
                 "trustworthy_db_list": set(),
                 "adsi_providers": set(),
                 "walkthrough": list(),
-                "walkthrough_history": list(),
                 "cloned_from": "",
             }
 
@@ -223,6 +224,19 @@ class Operations(BaseSQLClient):
             return True
         return utilities.is_string_in_lists(user_roles, high_privileged_roles)
 
+    def is_impersonation_depth_exceeded(self, chain_id: str) -> int:
+        """
+            This function is responsible to check if the impersonation depth is exceeded.
+        """
+        server_info = self.state['servers_info'][chain_id]
+        counter = 0
+        for operation_type, operation_value in server_info['walkthrough']:
+            if not operation_value:
+                continue
+            if operation_type in ['server', 'database']:
+                counter += 1
+        return counter >= self.max_impersonation_depth
+
     def retrieve_server_information(self, chain_id: Union[str, None], link_name: Union[str, None]) -> list:
         """
             This function is responsible to retrieve the server information.
@@ -233,7 +247,8 @@ class Operations(BaseSQLClient):
             "server_roles": Queries.GET_USER_SERVER_ROLES,
             "db_roles": Queries.GET_USER_DATABASE_ROLES,
             "server_principals": Queries.CAN_IMPERSONATE_AS_SERVER_PRINCIPAL,
-            "database_principals": Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL
+            "database_principals": Queries.CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL,
+            "available_databases": Queries.DATABASES_LIST
         }
         required_queries = ["server_information"]
         dict_results = {}
@@ -244,11 +259,15 @@ class Operations(BaseSQLClient):
             if not results['is_success']:
                 if key in required_queries:
                     LOG.error(f"Failed to retrieve server information from {chain_str}")
-                    del self.state['servers_info'][chain_id]
+                    self.deletion_list.add(chain_id)
                     return
                 continue
             dict_results[key] = results['results']
 
+        if not dict_results['server_information']:
+            LOG.error(f"Failed to retrieve server information from {chain_str}")
+            self.deletion_list.add(chain_id)
+            return
         db_user = dict_results['server_information'][0]['db_user']
         server_user = dict_results['server_information'][0]['server_user']
         db_name = dict_results['server_information'][0]['db_name']
@@ -262,7 +281,6 @@ class Operations(BaseSQLClient):
         if not link_name:
             LOG.info(f"Discovered hostname: {hostname}")
             self.state['hostname'] = hostname
-            self.principals_history.append((hostname, self.username))
             chain_id = self.add_to_server_state(chain_id, "hostname", hostname)
             self.add_to_server_state(chain_id, "chain_tree", [[hostname, chain_id]])
 
@@ -277,6 +295,10 @@ class Operations(BaseSQLClient):
         if 'trustworthy_db_list' in dict_results.keys():
             for db_name in dict_results['trustworthy_db_list']:
                 chain_id = self.add_to_server_state(chain_id, "trustworthy_db_list", db_name['name'])
+
+        if 'available_databases' in dict_results.keys():
+            for db_name in dict_results['available_databases']:
+                chain_id = self.add_to_server_state(chain_id, "available_databases", db_name['name'])
 
         if 'server_roles' in dict_results.keys():
             for server_role in dict_results['server_roles']:
@@ -331,17 +353,16 @@ class Operations(BaseSQLClient):
         LOG.info(f"Server information from {chain_str} is retrieved")
 
         for walkthrough in server_info['walkthrough']:
-            self.principals_history.append(walkthrough)
-
+            self.operations_history.append(walkthrough)
         yield chain_id
-        if chain_id not in self.state['servers_info'].keys():
-            return
-        if len(server_info['walkthrough']) + 1 > self.max_impersonation_depth:
+
+        if self.is_impersonation_depth_exceeded(chain_id):
             LOG.warning(f"Max impersonation depth reached for {chain_str}")
             return
         for principal_type in ["server_principals", "database_principals"]:
+            p_type = "server" if principal_type == "server_principals" else "database"
             for principal in server_info[principal_type]:
-                if (hostname, principal) in self.principals_history:
+                if (p_type, hostname, principal) in self.operations_history:
                     LOG.warning(f"Principal {principal} already weaponized on {hostname}")
                     continue
 
@@ -349,12 +370,8 @@ class Operations(BaseSQLClient):
                 if walkthrough in server_info['walkthrough']:
                     continue
 
-                if principal in server_info['walkthrough_history']:
-                    continue
-
                 clone_chain_id = self.clone_chain_id(chain_id)
-                clone_chain_id = self.add_to_server_state(clone_chain_id, 'walkthrough', walkthrough)
-                clone_chain_id = self.add_to_server_state(clone_chain_id, 'walkthrough_history', walkthrough)
+                self.add_to_server_state(clone_chain_id, 'walkthrough', walkthrough)
                 yield from self.retrieve_server_information(clone_chain_id, link_name)
 
     def set_server_options(self, chain_id: str, link_name: str, feature: str, status: Literal['true', 'false']) -> None:
@@ -372,6 +389,14 @@ class Operations(BaseSQLClient):
             self.add_rev2self_query(chain_id, utilities.format_strings(Queries.SET_SERVER_OPTION, link_name=link_name,
                                                                        feature=feature, status=rev2sef_status),
                                     template=set_server_option['template'])
+
+    def delete_non_relevant_chains(self) -> None:
+        """
+            This function is responsible to delete the non-relevant chains.
+        """
+        for chain_id in self.deletion_list:
+            del self.state['servers_info'][chain_id]
+        self.deletion_list.clear()
 
     def retrieve_links(self, chain_id: str) -> None:
         """
@@ -391,7 +416,6 @@ class Operations(BaseSQLClient):
         for row in linkable_servers_results['results']:
 
             link_name = utilities.remove_instance_name(row['name'])
-
             if row['provider'].lower() == "adsdsoobject":
                 self.add_to_server_state(chain_id, "adsi_providers", link_name)
                 continue
@@ -410,7 +434,7 @@ class Operations(BaseSQLClient):
             for collected_chain_id in self.retrieve_server_information(new_chain_id, link_name):
                 if self.is_link_in_chain(collected_chain_id):
                     LOG.info(f"Link {link_name} already in chain {chain_str}")
-                    del self.state['servers_info'][collected_chain_id]
+                    self.deletion_list.add(collected_chain_id)
                     continue
                 if len(self.state['servers_info'][collected_chain_id]['chain_tree']) > self.max_link_depth:
                     LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_link_depth})")
@@ -618,11 +642,14 @@ class Operations(BaseSQLClient):
             return None
         is_func_exists = self.build_chain(chain_id, utilities.format_strings(Queries.IS_FUNCTION_EXISTS,
                                                                              function_name=function_name))
+        db_user = self.state['servers_info'][chain_id]['db_user']
         if is_func_exists['is_success'] and is_func_exists['results'][0]['status'] == 'True':
             LOG.info(f"{function_name} function is already exists")
         else:
+
             add_function = self.build_chain(chain_id,
                                             utilities.format_strings(Queries.CREATE_FUNCTION,
+                                                                     db_user=db_user,
                                                                      function_name=function_name, asm_name=asm_name,
                                                                      namespace=namespace, class_name=class_name,
                                                                      arg="@port int"),
@@ -634,8 +661,8 @@ class Operations(BaseSQLClient):
             self.add_rev2self_query(chain_id, utilities.format_strings(Queries.DROP_FUNCTION,
                                                                        function_name=function_name),
                                     template=add_function['template'])
-        function_query = utilities.format_strings(Queries.FUNCTION_EXECUTION, function_name=function_name,
-                                                  command=command)
+        function_query = utilities.format_strings(Queries.FUNCTION_EXECUTION, db_user=db_user,
+                                                  function_name=function_name, command=command)
         function_execution = self.build_chain(chain_id, function_query, method="OpenQuery", wait=wait)
         if not function_execution['is_success']:
             LOG.error(f"Failed to execute custom assembly")
@@ -650,6 +677,7 @@ class Operations(BaseSQLClient):
         for operation_type, operation_value in self.state['servers_info'][chain_id]['walkthrough'][::-1]:
             if operation_type in ['server', 'database']:
                 query = self.do_impersonation(operation_type, operation_value, query)
+
         return query
 
     def add_rev2self_query(self, chain_id: str, query: str, template: str) -> None:
