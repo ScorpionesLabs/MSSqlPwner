@@ -2,20 +2,18 @@
 <p align="center">
  <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/logo.PNG?raw=true">
 </p>
-MSSqlPwner is an advanced and versatile pentesting tool designed to seamlessly interact with MSSQL servers and based on Impacket.
-The MSSqlPwner tool empowers ethical hackers and security professionals to conduct comprehensive security assessments on MSSQL environments.
-
+MSSqlPwner is an advanced and versatile pentesting tool designed to seamlessly interact and pwn MSSQL servers.
+That tool is based on impacket, which allows attackers to authenticate to databases using clear-text passwords NTLM Hashes,  and kerberos tickets.
 With MSSqlPwner, users can execute custom commands through various methods, including custom assembly, `xp_cmdshell`, and `sp_oacreate(Ole Automation Procedures)` and much more. 
 
-The tool starts with recursive enumeration on linked servers and gather all the possible chains.
+The tool starts with recursive enumeration on linked servers and possible impersonations in order to gather all the possible chains for command execution.
 
-Also, the MSSqlPwner tool can be used for NTLM relay capabilities, utilizing functions such as `xp_dirtree`, `xp_subdirs`, `xp_fileexist`, and command execution.
+Also, the MSSqlPwner tool can be used for NTLM relay capabilities, utilizing functions such as `xp_dirtree`, `xp_subdirs`, `xp_fileexist`.
 
-This tool provide opportunities for lateral movement assessments and exploration of linked servers.
+This tool can be used for lateral movement assessments and exploration of linked servers.
 
-If the authenticated MSSQL user does not have permission to execute certain operations, the tool can find a chain that might allow the execution. 
-For example, it can send a query to a linked server that returns back with a link to the authenticated MSSQL service with higher permissions.
-The tool also supports recursive querying via links to execute queries and commands on otherwise inaccessible linked servers directed from the compromised MSSQL service.
+If the authenticated MSSQL user does not have permission to execute certain operations, the tool can find the right chain that will allows command execution. 
+For example, if your user cant execute commands in the current context, the tool will build a chain that will use a link server and connect back to our server with escelated privileges.
 
 ## Example
 <p align="center">
