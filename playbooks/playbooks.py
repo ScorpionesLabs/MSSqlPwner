@@ -41,11 +41,11 @@ class Playbooks(Operations):
                                                              ["y", "n"], 'y'):
                     self.state = json.load(open(self.state_filename))
                 else:
-                    chain_id = self.retrieve_server_information(None, None)
-                    self.retrieve_links(chain_id)
+                    for chain_id in self.retrieve_server_information(None, None):
+                        self.retrieve_links(chain_id)
         else:
-            chain_id = self.retrieve_server_information(None, None)
-            self.retrieve_links(chain_id)
+            for chain_id in self.retrieve_server_information(None, None):
+                self.retrieve_links(chain_id)
 
         utilities.store_state(self.state_filename, self.state)
         utilities.print_state(self.state)
@@ -235,7 +235,7 @@ class Playbooks(Operations):
         while True:
             try:
                 chain_id = list(self.get_execution_list(chosen_chain_id, chosen_link_name))[0]
-                title = self.get_title(chain_id)
+                title = self.generate_chain_str(chain_id)
 
                 args_list = input(f"MSSqlPwner#{title}> ").strip()
                 selected_module = args_list.split(' ')[0]

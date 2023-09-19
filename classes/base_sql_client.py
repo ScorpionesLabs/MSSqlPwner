@@ -149,35 +149,36 @@ class BaseSQLClient(object):
         ret_val = self._parse_logs(decode_results=decode_results)
         if self.debug:
             LOG.info(ret_val['replay'])
-        if print_results or self.debug:
+        if print_results:
             LOG.info(ret_val['results'])
             pass
 
         return ret_val
 
     def build_query_chain(self, chain_tree: list, chain_tree_ids: list, query: str,
-                          method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> list:
+                          method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"], idx: int = 0) -> list:
         """
         This function is responsible to build a query chain.
         """
-
         if not chain_tree:
+            query = self.configure_query_with_defaults(chain_tree_ids[0], query)
             yield query
             return
 
         link_name = chain_tree.pop()
+        idx += 1
+        if len(chain_tree) > 0:
+            query = self.configure_query_with_defaults(chain_tree_ids[idx], query)
         new_query = utilities.link_query(link_name, query, method) if len(chain_tree) > 0 else query
-        yield from self.build_query_chain(chain_tree, chain_tree_ids, new_query, method)
-
+        yield from self.build_query_chain(chain_tree, chain_tree_ids, new_query, method, idx)
         for i, chain_id in enumerate(chain_tree_ids):
+
             server_info = self.state['servers_info'][chain_id]
             if server_info['link_name'] != link_name:
                 continue
 
-            for imp_query in self.impersonate_as(chain_id):
-                new_imp_query = utilities.replace_strings(imp_query, {"[QUERY]": new_query})
-
-                yield from self.build_query_chain(chain_tree, chain_tree_ids, new_imp_query, method)
+            for imp_query in self.impersonate_as(chain_id, new_query):
+                yield from self.build_query_chain(chain_tree, chain_tree_ids, imp_query, method)
 
     def generate_query(self, chain_id: str, query: str,
                        method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery") -> list:
@@ -223,9 +224,26 @@ class BaseSQLClient(object):
                 return ret_val
         return ret_val
 
-    def impersonate_as(self, chain_id: str) -> list:
+    @staticmethod
+    def do_impersonation(principal_type: Literal['server', 'database'], user: str, query: str) -> str:
         """
         This function is responsible to impersonate as a server or database principal.
+        """
+        if principal_type == 'server':
+            impersonation_query = utilities.format_strings(Queries.IMPERSONATE_AS_SERVER_PRINCIPAL, username=user)
+        else:
+            impersonation_query = utilities.format_strings(Queries.IMPERSONATE_AS_DATABASE_PRINCIPAL, username=user)
+        return utilities.replace_strings(impersonation_query, {"[QUERY]": query})
+
+    def configure_query_with_defaults(self, chain_id: str, query: str) -> str:
+        """
+        this function is responsible to add the default operations to a query
+        """
+        raise NotImplementedError
+
+    def impersonate_as(self, chain_id: str, query: str) -> list:
+        """
+        This function is responsible to iterate and impersonate as a server or database principal.
         """
         raise NotImplementedError
 
