@@ -145,12 +145,15 @@ class Playbooks(Operations):
                     LOG.warning(f"Failed to retrieve password from {chain_str}")
         return False
 
-    def get_chain_list(self) -> bool:
+    def get_chain_list(self, filter_hostname: str = None) -> bool:
         """
         This function is responsible to return the chain list.
         """
         LOG.info("Chain list:")
         for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
+            if filter_hostname:
+                if filter_hostname != server_info['hostname']:
+                    continue
             chain_id = server_info['chain_id']
             chain_str = self.generate_chain_str(chain_id)
             user_name = server_info['server_user']
@@ -323,7 +326,7 @@ class Playbooks(Operations):
                                                  options.target)
 
             elif options.module == 'get-chain-list':
-                ret_val = self.get_chain_list()
+                ret_val = self.get_chain_list(options.filter_hostname)
             elif options.module == 'get-link-server-list':
                 ret_val = self.get_linked_server_list()
             elif options.module == 'rev2self':

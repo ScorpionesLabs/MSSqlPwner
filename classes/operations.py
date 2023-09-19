@@ -10,6 +10,7 @@ import os
 import utilities
 from impacket import LOG
 from playbooks import Queries
+from termcolor import colored
 from typing import Literal, Any, Union
 from classes.base_sql_client import BaseSQLClient
 
@@ -30,6 +31,7 @@ class Operations(BaseSQLClient):
         self.max_recursive_links = args_options.max_recursive_links
         self.auto_yes = args_options.auto_yes
         self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
+        self.principals_history = []
 
     def clone_chain_id(self, chain_id: str) -> str:
         """
@@ -118,13 +120,13 @@ class Operations(BaseSQLClient):
 
         for operation_type, operation_value in server_info['walkthrough']:
             if operation_type == 'server':
-                server_user = f"{operation_value}[impersonate]"
+                server_user += f">{colored('I:', 'red')}{operation_value}"
             elif operation_type == 'database':
-                db_user = f"{operation_value}[impersonate]"
+                db_user += f">{colored('I:', 'red')}{operation_value}"
 
         impersonation_details = f"{server_user}@{db_name}/{db_user}"
 
-        return impersonation_details
+        return colored(impersonation_details, "cyan")
 
     def generate_chain_str(self, chain_id: str):
         """
@@ -134,13 +136,14 @@ class Operations(BaseSQLClient):
         if not server_info['chain_tree']:
             return server_info['hostname']
 
-        chain_str = server_info['chain_tree'][0]
+        chain_str = colored(server_info['chain_tree'][0], 'green')
         chain_tree_ids = server_info['chain_tree_ids']
         chain_str += f" ({self.generate_authentication_details(chain_tree_ids[0])})"
 
         for idx, link_name in enumerate(server_info['chain_tree'][1:]):
-            chain_str += f" -> {link_name} ({self.generate_authentication_details(chain_tree_ids[idx + 1])})"
-        return chain_str.replace("(@/)", "(Unknown)")
+            authentication_details = self.generate_authentication_details(chain_tree_ids[idx + 1])
+            chain_str += f" -> {colored(link_name, 'green')} ({authentication_details})"
+        return chain_str.replace("@/", "Unknown")
 
     def is_valid_chain_id(self, chain_id: str) -> bool:
         """
@@ -235,7 +238,6 @@ class Operations(BaseSQLClient):
         required_queries = ["server_information"]
         dict_results = {}
         chain_str = self.generate_chain_str(chain_id) if chain_id else self.server_address
-        LOG.info(f"Retrieve server information from {chain_str}")
         for key, query in queries.items():
             results = self.build_chain(chain_id, query)
 
@@ -289,6 +291,10 @@ class Operations(BaseSQLClient):
 
                 if server_principal['username'] in self.state['servers_info'][chain_id]['server_principals']:
                     continue
+                principal_properties = (hostname, server_principal['username'])
+                if principal_properties in self.principals_history:
+                    continue
+                self.principals_history.append(principal_properties)
                 LOG.info(f"Discovered server principal: {server_principal['username']} on {chain_str}")
                 chain_id = self.add_to_server_state(chain_id, "server_principals", server_principal['username'])
 
@@ -299,13 +305,20 @@ class Operations(BaseSQLClient):
 
                 if db_principal['username'] in self.state['servers_info'][chain_id]['database_principals']:
                     continue
+                principal_properties = (hostname, db_principal['username'])
+                if principal_properties in self.principals_history:
+                    continue
+                self.principals_history.append(principal_properties)
                 LOG.info(f"Discovered database principal: {db_principal['username']} on {chain_str}")
                 chain_id = self.add_to_server_state(chain_id, "database_principals", db_principal['username'])
         chain_id = self.add_to_server_state(chain_id, "chain_str", self.generate_chain_str(chain_id))
+
         if self.is_privileged_user(chain_id, 'server'):
             privileged_users = self.build_chain(chain_id, Queries.USER_LIST_FOR_SYS_ADMIN)
             if privileged_users['is_success']:
                 for user in privileged_users['results']:
+                    if user['username'] == server_user:
+                        continue
                     if user['username'] in self.state['servers_info'][chain_id]['server_principals']:
                         continue
                     LOG.info(f"Discovered server principal: {user['username']} on {chain_str}")
@@ -317,8 +330,11 @@ class Operations(BaseSQLClient):
                 for user in privileged_users['results']:
                     if user['username'] in self.state['servers_info'][chain_id]['database_principals']:
                         continue
+                    if user['username'] == db_user:
+                        continue
                     LOG.info(f"Discovered database principal: {user['username']} on {chain_str}")
                     chain_id = self.add_to_server_state(chain_id, "database_principals", user['username'])
+        LOG.info(f"Server information from {chain_str} is retrieved")
         yield chain_id
         if chain_id not in self.state['servers_info'].keys():
             return
@@ -627,21 +643,6 @@ class Operations(BaseSQLClient):
             if operation_type in ['server', 'database']:
                 query = self.do_impersonation(operation_type, operation_value, query)
         return query
-
-    def impersonate_as(self, chain_id: str, query: str) -> list:
-        """
-        This function is responsible to impersonate as a server or database principal.
-        """
-        server_info = self.state['servers_info'][chain_id]
-
-        for principal_type in ['server', 'database']:
-            for user in server_info[f'{principal_type}_principals']:
-                cloned_query = copy.copy(query)
-                operation = (principal_type, user)
-                if operation in server_info['walkthrough_history']:
-                    LOG.info(f"Skipping impersonation to {user} as it was already done")
-                    continue
-                yield self.do_impersonation(principal_type, user, cloned_query)
 
     def add_rev2self_query(self, chain_id: str, query: str, template: str) -> None:
         """

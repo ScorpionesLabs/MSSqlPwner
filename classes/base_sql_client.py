@@ -171,14 +171,6 @@ class BaseSQLClient(object):
             query = self.configure_query_with_defaults(chain_tree_ids[idx], query)
         new_query = utilities.link_query(link_name, query, method) if len(chain_tree) > 0 else query
         yield from self.build_query_chain(chain_tree, chain_tree_ids, new_query, method, idx)
-        for i, chain_id in enumerate(chain_tree_ids):
-
-            server_info = self.state['servers_info'][chain_id]
-            if server_info['link_name'] != link_name:
-                continue
-
-            for imp_query in self.impersonate_as(chain_id, new_query):
-                yield from self.build_query_chain(chain_tree, chain_tree_ids, imp_query, method)
 
     def generate_query(self, chain_id: str, query: str,
                        method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery") -> list:
@@ -238,12 +230,6 @@ class BaseSQLClient(object):
     def configure_query_with_defaults(self, chain_id: str, query: str) -> str:
         """
         this function is responsible to add the default operations to a query
-        """
-        raise NotImplementedError
-
-    def impersonate_as(self, chain_id: str, query: str) -> list:
-        """
-        This function is responsible to iterate and impersonate as a server or database principal.
         """
         raise NotImplementedError
 
