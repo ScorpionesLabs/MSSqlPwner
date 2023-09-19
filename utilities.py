@@ -364,8 +364,10 @@ def generate_arg_parser():
 
     module = parser.add_argument_group('Choose module')
     module.add_argument("-link-name", help="Linked server to launch queries", default=None)
-    module.add_argument("-max-recursive-links", help="Maximum links you want to scrape recursively", default=10,
+    module.add_argument("-max-link-depth", help="Maximum links you want to depth recursively", default=10,
                         type=int)
+    module.add_argument("-max-impersonation-depth", help="Maximum impersonation you want to depth in each link",
+                        default=2, type=int)
     module.add_argument("-chain-id", help="Chain ID to use", default=None, type=str)
     module.add_argument("-auto-yes", help="Auto answer yes to all questions", action='store_true', default=False)
 

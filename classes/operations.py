@@ -28,7 +28,8 @@ class Operations(BaseSQLClient):
         self.state_filename = f"{server_address}_{user_name}.state"
 
         self.rev2self = dict()
-        self.max_recursive_links = args_options.max_recursive_links
+        self.max_link_depth = args_options.max_link_depth
+        self.max_impersonation_depth = args_options.max_impersonation_depth
         self.auto_yes = args_options.auto_yes
         self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
         self.principals_history = []
@@ -37,11 +38,14 @@ class Operations(BaseSQLClient):
         """
             This function is responsible to clone the chain id.
         """
-        new_chain_id = utilities.generate_link_id()
-        self.state['servers_info'][new_chain_id] = copy.deepcopy(self.state['servers_info'][chain_id])
+        new_chain_id = self.add_to_server_state(None, "cloned_from", chain_id)
+        cloned = copy.deepcopy(self.state['servers_info'][chain_id])
+        if cloned['chain_tree']:
+            cloned['chain_tree'][-1][1] = new_chain_id
+        self.add_to_server_state(new_chain_id, 'chain_tree', cloned['chain_tree'])
+        self.add_to_server_state(new_chain_id, 'walkthrough', cloned['walkthrough'])
         self.add_to_server_state(new_chain_id, 'chain_id', new_chain_id)
         self.add_to_server_state(new_chain_id, "cloned_from", chain_id)
-        self.state['servers_info'][new_chain_id]['chain_tree_ids'][-1] = new_chain_id
         return new_chain_id
 
     def add_to_server_state(self, chain_id: Union[str, None], key: str, value: Any) -> str:
@@ -55,7 +59,6 @@ class Operations(BaseSQLClient):
                 "hostname": "",
                 "chain_str": "",
                 "chain_tree": list(),
-                "chain_tree_ids": list(),
                 "db_user": "",
                 "db_name": "",
                 "server_user": "",
@@ -117,15 +120,15 @@ class Operations(BaseSQLClient):
         server_user = server_info['server_user']
         db_user = server_info['db_user']
         db_name = self.state['servers_info'][chain_id]['db_name']
-
         for operation_type, operation_value in server_info['walkthrough']:
+            if not operation_value:
+                continue
             if operation_type == 'server':
                 server_user += f">{colored('I:', 'red')}{operation_value}"
             elif operation_type == 'database':
                 db_user += f">{colored('I:', 'red')}{operation_value}"
 
         impersonation_details = f"{server_user}@{db_name}/{db_user}"
-
         return colored(impersonation_details, "cyan")
 
     def generate_chain_str(self, chain_id: str):
@@ -136,14 +139,11 @@ class Operations(BaseSQLClient):
         if not server_info['chain_tree']:
             return server_info['hostname']
 
-        chain_str = colored(server_info['chain_tree'][0], 'green')
-        chain_tree_ids = server_info['chain_tree_ids']
-        chain_str += f" ({self.generate_authentication_details(chain_tree_ids[0])})"
-
-        for idx, link_name in enumerate(server_info['chain_tree'][1:]):
-            authentication_details = self.generate_authentication_details(chain_tree_ids[idx + 1])
+        chain_str = ""
+        for link_name, new_chain_id in server_info['chain_tree']:
+            authentication_details = self.generate_authentication_details(new_chain_id)
             chain_str += f" -> {colored(link_name, 'green')} ({authentication_details})"
-        return chain_str.replace("@/", "Unknown")
+        return chain_str.lstrip(" -> ")
 
     def is_valid_chain_id(self, chain_id: str) -> bool:
         """
@@ -177,12 +177,12 @@ class Operations(BaseSQLClient):
 
         current_server_info = self.state['servers_info'][chain_id]
         hosts_list = []
-        for captured_chain in current_server_info['chain_tree_ids']:
+        for _, captured_chain in current_server_info['chain_tree']:
             server_info = self.state['servers_info'][captured_chain]
             hosts_list.append(f"{server_info['hostname']}.{server_info['domain_name']}")
 
         for host in hosts_list:
-            if hosts_list.count(host) > 2:
+            if hosts_list.count(host) > 1:
                 return True
         return False
 
@@ -262,9 +262,11 @@ class Operations(BaseSQLClient):
         if not link_name:
             LOG.info(f"Discovered hostname: {hostname}")
             self.state['hostname'] = hostname
-            chain_id = self.add_to_server_state(chain_id, "chain_tree", hostname)
-            self.add_to_server_state(chain_id, "chain_tree_ids", [chain_id])
+            self.principals_history.append((hostname, self.username))
+            chain_id = self.add_to_server_state(chain_id, "hostname", hostname)
+            self.add_to_server_state(chain_id, "chain_tree", [[hostname, chain_id]])
 
+        server_info = self.state['servers_info'][chain_id]
         link_name = link_name if link_name else hostname
 
         for k, v in {"hostname": hostname, "link_name": link_name, "db_user": db_user,
@@ -289,13 +291,8 @@ class Operations(BaseSQLClient):
                 if server_principal['username'] == server_user:
                     continue
 
-                if server_principal['username'] in self.state['servers_info'][chain_id]['server_principals']:
+                if server_principal['username'] in server_info['server_principals']:
                     continue
-                principal_properties = (hostname, server_principal['username'])
-                if principal_properties in self.principals_history:
-                    LOG.warning(f"Principal {server_principal['username']} already discovered")
-                    continue
-                self.principals_history.append(principal_properties)
                 LOG.info(f"Discovered server principal: {server_principal['username']} on {chain_str}")
                 chain_id = self.add_to_server_state(chain_id, "server_principals", server_principal['username'])
 
@@ -304,13 +301,8 @@ class Operations(BaseSQLClient):
                 if db_principal['username'] == db_user:
                     continue
 
-                if db_principal['username'] in self.state['servers_info'][chain_id]['database_principals']:
+                if db_principal['username'] in server_info['database_principals']:
                     continue
-                principal_properties = (hostname, db_principal['username'])
-                if principal_properties in self.principals_history:
-                    LOG.warning(f"Principal {server_principal['username']} already discovered")
-                    continue
-                self.principals_history.append(principal_properties)
                 LOG.info(f"Discovered database principal: {db_principal['username']} on {chain_str}")
                 chain_id = self.add_to_server_state(chain_id, "database_principals", db_principal['username'])
         chain_id = self.add_to_server_state(chain_id, "chain_str", self.generate_chain_str(chain_id))
@@ -321,7 +313,7 @@ class Operations(BaseSQLClient):
                 for user in privileged_users['results']:
                     if user['username'] == server_user:
                         continue
-                    if user['username'] in self.state['servers_info'][chain_id]['server_principals']:
+                    if user['username'] in server_info['server_principals']:
                         continue
                     LOG.info(f"Discovered server principal: {user['username']} on {chain_str}")
                     chain_id = self.add_to_server_state(chain_id, "server_principals", user['username'])
@@ -330,24 +322,34 @@ class Operations(BaseSQLClient):
             privileged_users = self.build_chain(chain_id, Queries.USER_LIST_FOR_DB_OWNER)
             if privileged_users['is_success']:
                 for user in privileged_users['results']:
-                    if user['username'] in self.state['servers_info'][chain_id]['database_principals']:
+                    if user['username'] in server_info['database_principals']:
                         continue
                     if user['username'] == db_user:
                         continue
                     LOG.info(f"Discovered database principal: {user['username']} on {chain_str}")
                     chain_id = self.add_to_server_state(chain_id, "database_principals", user['username'])
         LOG.info(f"Server information from {chain_str} is retrieved")
+
+        for walkthrough in server_info['walkthrough']:
+            self.principals_history.append(walkthrough)
+
         yield chain_id
         if chain_id not in self.state['servers_info'].keys():
             return
-
+        if len(server_info['walkthrough']) + 1 > self.max_impersonation_depth:
+            LOG.warning(f"Max impersonation depth reached for {chain_str}")
+            return
         for principal_type in ["server_principals", "database_principals"]:
-            for principal in self.state['servers_info'][chain_id][principal_type]:
-                walkthrough = (principal_type.replace("_principals", ""), principal)
-                if walkthrough in self.state['servers_info'][chain_id]['walkthrough']:
+            for principal in server_info[principal_type]:
+                if (hostname, principal) in self.principals_history:
+                    LOG.warning(f"Principal {principal} already weaponized on {hostname}")
                     continue
 
-                if principal in self.state['servers_info'][chain_id]['walkthrough_history']:
+                walkthrough = (principal_type.replace("_principals", ""), principal)
+                if walkthrough in server_info['walkthrough']:
+                    continue
+
+                if principal in server_info['walkthrough_history']:
                     continue
 
                 clone_chain_id = self.clone_chain_id(chain_id)
@@ -377,8 +379,8 @@ class Operations(BaseSQLClient):
         """
         server_info = self.state['servers_info'][chain_id]
         chain_str = self.generate_chain_str(chain_id)
-        if len(self.state['servers_info'][chain_id]['chain_tree']) > self.max_recursive_links:
-            LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_recursive_links})")
+        if len(self.state['servers_info'][chain_id]['chain_tree']) > self.max_link_depth:
+            LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_link_depth})")
             return
 
         linkable_servers_results = self.build_chain(chain_id, Queries.GET_LINKABLE_SERVERS)
@@ -402,15 +404,16 @@ class Operations(BaseSQLClient):
                 self.set_server_options(chain_id, link_name, 'rpc out', 'true')
 
             chain_str = f"{chain_str} -> {link_name}"
-            new_chain_id = self.add_to_server_state(None, "chain_tree", server_info['chain_tree'] + [link_name])
-            self.add_to_server_state(new_chain_id, "chain_tree_ids", server_info['chain_tree_ids'] + [new_chain_id])
+            new_chain_id = self.add_to_server_state(None, "link_name", link_name)
+            new_chain_id = self.add_to_server_state(new_chain_id, "chain_tree",
+                                                    server_info['chain_tree'] + [[link_name, new_chain_id]])
             for collected_chain_id in self.retrieve_server_information(new_chain_id, link_name):
                 if self.is_link_in_chain(collected_chain_id):
                     LOG.info(f"Link {link_name} already in chain {chain_str}")
                     del self.state['servers_info'][collected_chain_id]
                     continue
-                if len(self.state['servers_info'][collected_chain_id]['chain_tree']) > self.max_recursive_links:
-                    LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_recursive_links})")
+                if len(self.state['servers_info'][collected_chain_id]['chain_tree']) > self.max_link_depth:
+                    LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_link_depth})")
                     continue
                 self.retrieve_links(collected_chain_id)
 

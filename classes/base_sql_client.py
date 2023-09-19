@@ -155,22 +155,19 @@ class BaseSQLClient(object):
 
         return ret_val
 
-    def build_query_chain(self, chain_tree: list, chain_tree_ids: list, query: str,
-                          method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"], idx: int = 0) -> list:
+    def build_query_chain(self, chain_tree: list, query: str,
+                          method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> list:
         """
         This function is responsible to build a query chain.
         """
         if not chain_tree:
-            query = self.configure_query_with_defaults(chain_tree_ids[0], query)
             yield query
             return
 
-        link_name = chain_tree.pop()
-        idx += 1
-        if len(chain_tree) > 0:
-            query = self.configure_query_with_defaults(chain_tree_ids[idx], query)
+        link_name, chain_id = chain_tree.pop()
+        query = self.configure_query_with_defaults(chain_id, query)
         new_query = utilities.link_query(link_name, query, method) if len(chain_tree) > 0 else query
-        yield from self.build_query_chain(chain_tree, chain_tree_ids, new_query, method, idx)
+        yield from self.build_query_chain(chain_tree, new_query, method)
 
     def generate_query(self, chain_id: str, query: str,
                        method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery") -> list:
@@ -188,7 +185,7 @@ class BaseSQLClient(object):
             return
 
         server_info = copy.deepcopy(self.state['servers_info'][chain_id])
-        yield from self.build_query_chain(server_info['chain_tree'], server_info['chain_tree_ids'], query, method)
+        yield from self.build_query_chain(server_info['chain_tree'], query, method)
 
     def build_chain(self, chain_id: str, query: str,
                     method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
