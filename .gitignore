@@ -1,3 +1,4 @@
 classes/__pycache__/*
 __pycache__/*
 playbooks/__pycache__/*
+*.state
