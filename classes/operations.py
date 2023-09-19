@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.2'
+__version__ = 'v1.3'
 __email__ = ['El3ct71k@gmail.com']
 
 import copy
@@ -293,6 +293,7 @@ class Operations(BaseSQLClient):
                     continue
                 principal_properties = (hostname, server_principal['username'])
                 if principal_properties in self.principals_history:
+                    LOG.warning(f"Principal {server_principal['username']} already discovered")
                     continue
                 self.principals_history.append(principal_properties)
                 LOG.info(f"Discovered server principal: {server_principal['username']} on {chain_str}")
@@ -307,6 +308,7 @@ class Operations(BaseSQLClient):
                     continue
                 principal_properties = (hostname, db_principal['username'])
                 if principal_properties in self.principals_history:
+                    LOG.warning(f"Principal {server_principal['username']} already discovered")
                     continue
                 self.principals_history.append(principal_properties)
                 LOG.info(f"Discovered database principal: {db_principal['username']} on {chain_str}")
@@ -375,6 +377,9 @@ class Operations(BaseSQLClient):
         """
         server_info = self.state['servers_info'][chain_id]
         chain_str = self.generate_chain_str(chain_id)
+        if len(self.state['servers_info'][chain_id]['chain_tree']) > self.max_recursive_links:
+            LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_recursive_links})")
+            return
 
         linkable_servers_results = self.build_chain(chain_id, Queries.GET_LINKABLE_SERVERS)
         if not linkable_servers_results['is_success']:
@@ -639,7 +644,7 @@ class Operations(BaseSQLClient):
         """
         this function is responsible to add the default operations to a query
         """
-        for operation_type, operation_value in self.state['servers_info'][chain_id]['walkthrough']:
+        for operation_type, operation_value in self.state['servers_info'][chain_id]['walkthrough'][::-1]:
             if operation_type in ['server', 'database']:
                 query = self.do_impersonation(operation_type, operation_value, query)
         return query

@@ -31,7 +31,7 @@ This tool is designed for security professionals and researchers for testing pur
 1. Utilities:
 - `interactive`: allow to use the tool interactively with live execution.
 - `enumerate`: enumerate the linked servers and the chains.
-- `get-chain-list` get the list of the chains.
+- `get-chain-list` get the list of the chains (You can filter by hostname using the flag `-filter-hostname HOSTNAME`).
 - `get-link-server-list` get the list of the linked servers.
 - `set-chain` Set chain ID (For interactive-mode only!)
 - `set-link-server` Set link server (For interactive-mode only!)

@@ -1,8 +1,8 @@
 # Impersonation and authentication queries
 CAN_IMPERSONATE_AS_SERVER_PRINCIPAL = "SELECT b.name as username FROM sys.server_permissions a INNER JOIN sys.server_principals b ON a.grantor_principal_id = b.principal_id and a.permission_name = 'IMPERSONATE';"
 CAN_IMPERSONATE_AS_DATABASE_PRINCIPAL = "SELECT b.name as username FROM sys.database_permissions a INNER JOIN sys.database_principals b ON a.grantor_principal_id = b.principal_id and a.permission_name = 'IMPERSONATE';"
-USER_LIST_FOR_SYS_ADMIN = "SELECT * FROM sys.server_principals WHERE type_desc LIKE '%_LOGIN'; and type != 'C'"
-USER_LIST_FOR_DB_OWNER = "SELECT name as username FROM sys.database_principals WHERE type_desc LIKE '%_USER' AND authentication_type_desc != 'None';"
+USER_LIST_FOR_SYS_ADMIN = "SELECT name as username FROM sys.server_principals WHERE type_desc LIKE '%_LOGIN' and type != 'C' and is_disabled = 0 and name NOT LIKE 'NT %' and name NOT LIKE '##MS%';"
+USER_LIST_FOR_DB_OWNER = "SELECT name as username FROM sys.database_principals WHERE type_desc LIKE '%_USER' AND authentication_type_desc != 'None' and name NOT LIKE '##MS%';"
 GET_USER_SERVER_ROLES = "SELECT p.name AS 'group' FROM sys.server_principals p JOIN sys.server_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
 GET_USER_DATABASE_ROLES = "SELECT p.name AS 'group' FROM sys.database_principals p JOIN sys.database_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
 IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}'; EXEC('[QUERY]'); REVERT"
