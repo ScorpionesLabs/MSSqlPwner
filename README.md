@@ -86,10 +86,14 @@ pip3 install -r requirements.txt
 python3 MSSqlPwner.py
 ```
 
+
 ## Usage
 ```
 # Interactive mode
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth interactive
+
+# Interactive mode with 2 depth level of impersonations
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth  -max-impersonation-depth 2 interactive
 
 
 # Executing custom assembly on the current server with windows authentication and executing hostname command 
