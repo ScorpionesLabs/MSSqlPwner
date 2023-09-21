@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3'
+__version__ = 'v1.3.1'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -17,8 +17,7 @@ import hashlib
 from uuid import uuid4
 from impacket import LOG
 from threading import Thread
-from playbooks import Queries
-from typing import Literal, Any, Union
+from typing import Any, Union
 
 
 class CustomThread(Thread):
@@ -109,23 +108,6 @@ def remove_instance_name(server_name: str) -> str:
     return server_name.split("\\")[0].strip()
 
 
-def retrieve_procedure_custom_name(procedure_name: str) -> str:
-    """
-    This function is responsible to retrieve the custom name of a procedure.
-    Example:
-        [dbo].[usp_GetUser] -> usp_GetUser
-        sp_oacreate -> Ole Automation Procedures
-        xp_cmdshell -> xp_cmdshell
-    """
-    custom_names = {
-        "sp_oacreate": "Ole Automation Procedures"
-    }
-
-    if procedure_name in custom_names.keys():
-        return custom_names[procedure_name]
-    return procedure_name
-
-
 def escape_single_quotes(query: str, amount: int) -> str:
     """
     This function is responsible to escape single quotes.
@@ -156,11 +138,11 @@ def _count_quotes(string, index, quote_type):
     return count
 
 
-def count_quotes(string, index_to_find, quote_type):
+def count_quotes(my_str, index_to_find, quote_type):
     """
     This function is responsible to count the number of quotes.
     """
-    container = string.replace(" ", "")
+    container = my_str.replace(" ", "")
     try:
         index = container.index(index_to_find)
         if container[index - 1] == quote_type and container[index + len(index_to_find)] == quote_type:
@@ -256,32 +238,6 @@ def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
 
 def sort_by_chain_length(dict_with_dict_values: list) -> list:
     return [d for d in sorted(dict_with_dict_values, key=lambda x: len(x["chain_tree"]))]
-
-
-def build_openquery(linked_server: str, query: str) -> str:
-    """
-    This function is responsible to embed a query within OpenQuery.
-    OpenQuery executes a specified pass-through query on the specified linked server
-    """
-    return format_strings(Queries.OPENQUERY, linked_server=linked_server, query=query)
-
-
-def build_exec_at(linked_server: str, query: str) -> str:
-    """
-    This function is responsible to embed a query within a procedure (That can also contains a query)
-    exec executes a command string or character string within a Transact-SQL batch.
-    This function uses the "at" argument to refer the query to another linked server.
-    """
-    return format_strings(Queries.EXEC_AT, linked_server=linked_server, query=query)
-
-
-def link_query(link: str, query: str, method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> str:
-    """
-    This function is responsible to link a query to a linked server.
-    """
-    method_func = build_exec_at if method == "exec_at" else build_openquery
-    return method_func(link, query)
-
 
 def return_result(status, replay, result, th: Union[None, CustomThread] = None):
     return {"is_success": status, "replay": replay, "results": result, "template": "", "thread": th}
