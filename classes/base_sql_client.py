@@ -9,7 +9,7 @@ __email__ = ['El3ct71k@gmail.com']
 import copy
 import logging
 import utilities
-import query_builder
+from classes import query_builder
 from impacket import tds
 from impacket import LOG
 from impacket import version
