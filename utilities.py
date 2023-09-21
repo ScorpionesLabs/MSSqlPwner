@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3'
+__version__ = 'v1.3.1'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -108,23 +108,6 @@ def remove_instance_name(server_name: str) -> str:
     return server_name.split("\\")[0].strip()
 
 
-def retrieve_procedure_custom_name(procedure_name: str) -> str:
-    """
-    This function is responsible to retrieve the custom name of a procedure.
-    Example:
-        [dbo].[usp_GetUser] -> usp_GetUser
-        sp_oacreate -> Ole Automation Procedures
-        xp_cmdshell -> xp_cmdshell
-    """
-    custom_names = {
-        "sp_oacreate": "Ole Automation Procedures"
-    }
-
-    if procedure_name in custom_names.keys():
-        return custom_names[procedure_name]
-    return procedure_name
-
-
 def escape_single_quotes(query: str, amount: int) -> str:
     """
     This function is responsible to escape single quotes.
@@ -155,11 +138,11 @@ def _count_quotes(string, index, quote_type):
     return count
 
 
-def count_quotes(string, index_to_find, quote_type):
+def count_quotes(my_str, index_to_find, quote_type):
     """
     This function is responsible to count the number of quotes.
     """
-    container = string.replace(" ", "")
+    container = my_str.replace(" ", "")
     try:
         index = container.index(index_to_find)
         if container[index - 1] == quote_type and container[index + len(index_to_find)] == quote_type:

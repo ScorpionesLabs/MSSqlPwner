@@ -1,15 +1,14 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3'
+__version__ = 'v1.3.1'
 __email__ = ['El3ct71k@gmail.com']
-
-import copy
 ########################################################
+
 import os
+import copy
 import utilities
 from impacket import LOG
-from playbooks import Queries
 from termcolor import colored
 from classes import query_builder
 from typing import Literal, Any, Union
@@ -209,11 +208,12 @@ class Operations(BaseSQLClient):
                 return "x86"
         return None
 
-    def is_privileged_user(self, chain_id: str, user_type: Literal['server', 'database']) -> bool:
+    def is_privileged_user(self, chain_id: str, user_type: str) -> bool:
         """
             This function is responsible to check if the given user is privileged.
         """
-
+        if user_type not in ['server', 'database']:
+            raise ValueError("User type must be 'server' or 'database'")
         server_info = self.state['servers_info'][chain_id]
         current_user = server_info['server_user'] if user_type == 'server' else server_info['db_user']
         high_privileged_roles = self.high_privileged_server_roles \
@@ -243,8 +243,8 @@ class Operations(BaseSQLClient):
             This function is responsible to retrieve the server information.
         """
         queries = {
-            "server_information": Queries.SERVER_INFORMATION,
-            "trustworthy_db_list": Queries.TRUSTWORTHY_DB_LIST,
+            "server_information": query_builder.get_server_information(),
+            "trustworthy_db_list": query_builder.get_trustworthy_db_list(),
             "server_roles": query_builder.get_user_roles(user_type="server"),
             "db_roles": query_builder.get_user_roles(user_type="database"),
             "server_principals": query_builder.get_impersonation_list(user_type="server"),
@@ -456,10 +456,7 @@ class Operations(BaseSQLClient):
         """
         This function is responsible to enable a procedure on the server.
         """
-        procedure_custom_name = utilities.retrieve_procedure_custom_name(procedure)
-        is_procedure_enabled = self.build_chain(chain_id,
-                                                utilities.format_strings(Queries.IS_PROCEDURE_ENABLED,
-                                                                         procedure=procedure_custom_name))
+        is_procedure_enabled = self.build_chain(chain_id, query_builder.is_procedure_enabled(procedure))
 
         if not is_procedure_enabled['is_success']:
             LOG.error(f"Cant fetch is_{procedure}_enabled status")
@@ -476,14 +473,12 @@ class Operations(BaseSQLClient):
             LOG.info(f"{procedure} needs to be configured")
             status = 1 if required_status else 0
             rev2self_status = 0 if required_status else 1
-            reconfigure_procedure_query = utilities.format_strings(Queries.RECONFIGURE_PROCEDURE,
-                                                                   procedure=procedure_custom_name, status=status)
             LOG.info(f"Reconfiguring {procedure}")
-            reconfigure_procedure = self.build_chain(chain_id, reconfigure_procedure_query, method="exec_at")
+            reconfigure_procedure = self.build_chain(chain_id, query_builder.reconfigure_procedure(procedure, status),
+                                                     method="exec_at")
             if reconfigure_procedure['is_success']:
                 self.add_rev2self_query(chain_id,
-                                        utilities.format_strings(Queries.RECONFIGURE_PROCEDURE, procedure=procedure,
-                                                                 status=rev2self_status),
+                                        query_builder.reconfigure_procedure(procedure, rev2self_status),
                                         template=reconfigure_procedure['template'])
             else:
                 LOG.warning(f"Failed to enable {procedure}")
@@ -493,8 +488,7 @@ class Operations(BaseSQLClient):
         """
         This function is responsible to execute a procedure on a linked server.
         """
-        is_procedure_accessible = self.build_chain(chain_id, utilities.format_strings(Queries.IS_PROCEDURE_ACCESSIBLE,
-                                                                                      procedure=procedure))
+        is_procedure_accessible = self.build_chain(chain_id, query_builder.is_procedure_accessible(procedure))
 
         if (not is_procedure_accessible['is_success']) or \
                 is_procedure_accessible['results'][0]['is_accessible'] != 'True':
@@ -534,8 +528,7 @@ class Operations(BaseSQLClient):
         if not os.path.exists(asm_file_location):
             LOG.error(f"Cannot find {asm_file_location}")
             return False
-        is_asm_exists = self.build_chain(chain_id, utilities.format_strings(Queries.IS_ASSEMBLY_EXISTS,
-                                                                            asm_name=asm_name))
+        is_asm_exists = self.build_chain(chain_id, query_builder.is_assembly_exists(asm_name))
         if is_asm_exists['is_success'] and is_asm_exists['results'][0]['status'] == 'True':
             LOG.info(f"{asm_name} assembly is already exists")
             return True
@@ -553,29 +546,24 @@ class Operations(BaseSQLClient):
             LOG.error("Failed to disable clr strict security")
             return False
 
-        my_hash = utilities.calculate_sha512_hash(asm_file_location)
-        is_app_trusted = self.build_chain(chain_id, utilities.format_strings(Queries.IS_MY_APP_TRUSTED,
-                                                                             my_hash=my_hash))
+        is_app_trusted = self.build_chain(chain_id, query_builder.is_app_trusted(asm_file_location))
 
         if (not is_app_trusted['is_success']) or (is_app_trusted['results'][0]['status'] == 'False'):
-            trust_asm = self.build_chain(chain_id, utilities.format_strings(Queries.TRUST_MY_APP, my_hash=my_hash),
+            trust_asm = self.build_chain(chain_id, query_builder.trust_my_app(asm_file_location),
                                          method="exec_at")
             if not trust_asm['is_success']:
                 LOG.error("Failed to trust our custom assembly")
                 return False
 
             LOG.info(f"Trusting our custom assembly")
-            self.add_rev2self_query(chain_id, utilities.format_strings(Queries.UNTRUST_MY_APP, my_hash=my_hash),
+            self.add_rev2self_query(chain_id, query_builder.untrust_my_app(asm_file_location),
                                     template=trust_asm['template'])
-        add_custom_asm = self.build_chain(chain_id,
-                                          utilities.format_strings(Queries.ADD_CUSTOM_ASM, custom_asm=custom_asm_hex,
-                                                                   asm_name=asm_name),
+        add_custom_asm = self.build_chain(chain_id, query_builder.add_custom_assembly(asm_name, custom_asm_hex),
                                           method="exec_at", indicates_success=['already exists in database'])
         if not add_custom_asm['is_success']:
             LOG.error(f"Failed to add custom assembly")
             return False
-        self.add_rev2self_query(chain_id, utilities.format_strings(Queries.DROP_ASSEMBLY, asm_name=asm_name),
-                                template=add_custom_asm['template'])
+        self.add_rev2self_query(chain_id, query_builder.drop_assembly(asm_name), template=add_custom_asm['template'])
         LOG.info(f"Added custom assembly")
         return True
 
@@ -588,26 +576,21 @@ class Operations(BaseSQLClient):
 
         if not self.add_new_custom_asm(chain_id, asm_file_location, asm_name):
             return False
-        is_proc_exists = self.build_chain(chain_id, utilities.format_strings(Queries.IS_PROCEDURE_EXISTS,
-                                                                             procedure_name=procedure_name))
+        is_proc_exists = self.build_chain(chain_id, query_builder.is_procedure_exists(procedure_name))
         if is_proc_exists['is_success'] and is_proc_exists['results'][0]['status'] == 'True':
             LOG.info(f"{procedure_name} procedure is already exists")
         else:
             add_procedure = self.build_chain(chain_id,
-                                             utilities.format_strings(Queries.CREATE_PROCEDURE, asm_name=asm_name,
-                                                                      procedure_name=procedure_name, arg=args),
+                                             query_builder.create_procedure(asm_name, procedure_name, args),
                                              method="exec_at", indicates_success=['is already an object named'])
 
             if not add_procedure['is_success']:
                 LOG.error(f"Failed to create procedure")
                 return False
-            self.add_rev2self_query(chain_id, utilities.format_strings(Queries.DROP_PROCEDURE,
-                                                                       procedure_name=procedure_name),
+            self.add_rev2self_query(chain_id, query_builder.drop_procedure(procedure_name),
                                     template=add_procedure['template'])
 
-        procedure_query = utilities.format_strings(Queries.PROCEDURE_EXECUTION, procedure=procedure_name,
-                                                   command=command)
-        results = self.build_chain(chain_id, procedure_query, method="exec_at")
+        results = self.build_chain(chain_id, query_builder.execute_procedure(procedure_name, command), method="exec_at")
         if not results['is_success']:
             LOG.error(f"Failed to execute custom assembly")
             return False
@@ -616,7 +599,7 @@ class Operations(BaseSQLClient):
                 LOG.info(f"Result: (Key: {key}) {value}")
         return True
 
-    def execute_custom_assembly_function(self, chain_id: str, asm_file_location: str, function_name: str,
+    def execute_custom_assembly_function(self, chain_id: str, asm_file_location: str, function_name: str, args: str,
                                          class_name: str, namespace: str, command: str, asm_name: str,
                                          wait: bool = True) -> Union[None, dict]:
         """
@@ -626,30 +609,25 @@ class Operations(BaseSQLClient):
 
         if not self.add_new_custom_asm(chain_id, asm_file_location, asm_name):
             return None
-        is_func_exists = self.build_chain(chain_id, utilities.format_strings(Queries.IS_FUNCTION_EXISTS,
-                                                                             function_name=function_name))
+        is_func_exists = self.build_chain(chain_id, query_builder.is_function_exists(function_name))
         db_user = self.state['servers_info'][chain_id]['db_user']
         if is_func_exists['is_success'] and is_func_exists['results'][0]['status'] == 'True':
             LOG.info(f"{function_name} function is already exists")
         else:
 
             add_function = self.build_chain(chain_id,
-                                            utilities.format_strings(Queries.CREATE_FUNCTION,
-                                                                     db_user=db_user,
-                                                                     function_name=function_name, asm_name=asm_name,
-                                                                     namespace=namespace, class_name=class_name,
-                                                                     arg="@port int"),
+                                            query_builder.create_function(db_user, function_name, asm_name, namespace,
+                                                                          class_name, args),
                                             method="exec_at", indicates_success=['already an object named'])
 
             if not add_function['is_success']:
                 LOG.error(f"Failed to create procedure")
                 return None
-            self.add_rev2self_query(chain_id, utilities.format_strings(Queries.DROP_FUNCTION,
-                                                                       function_name=function_name),
+            self.add_rev2self_query(chain_id, query_builder.drop_function(function_name),
                                     template=add_function['template'])
-        function_query = utilities.format_strings(Queries.FUNCTION_EXECUTION, db_user=db_user,
-                                                  function_name=function_name, command=command)
-        function_execution = self.build_chain(chain_id, function_query, method="OpenQuery", wait=wait)
+
+        function_execution = self.build_chain(chain_id, query_builder.execute_function(db_user, function_name, command),
+                                              method="OpenQuery", wait=wait)
         if not function_execution['is_success']:
             LOG.error(f"Failed to execute custom assembly")
             return None

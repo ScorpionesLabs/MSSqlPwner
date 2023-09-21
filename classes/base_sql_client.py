@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3'
+__version__ = 'v1.3.1'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -13,7 +13,6 @@ import query_builder
 from impacket import tds
 from impacket import LOG
 from impacket import version
-from playbooks import Queries
 from typing import Union, Literal
 from impacket.tds import TDS_SQL_BATCH
 
@@ -62,7 +61,7 @@ class BaseSQLClient(object):
         """
         This function is responsible to execute the given query.
         """
-        query = f"{Queries.REVERT} {query}"
+        query = f"REVERT; {query}"
         self.ms_sql.sendTDS(TDS_SQL_BATCH, (query + '\r\n').encode('utf-16le'))
         if self.debug:
             LOG.info(f"Query: {query}")

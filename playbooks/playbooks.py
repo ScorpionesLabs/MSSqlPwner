@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3'
+__version__ = 'v1.3.1'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -14,7 +14,7 @@ import readline
 import utilities
 from impacket import LOG
 from typing import Literal
-from playbooks import Queries
+from classes import query_builder
 from classes.operations import Operations
 from impacket.examples.utils import parse_target
 
@@ -121,7 +121,7 @@ class Playbooks(Operations):
                         f"Do you want to retrieve passwords from {discovered_provider} provider?",
                         ["y", "n"], 'y'):
                     continue
-            listener = self.execute_custom_assembly_function(chain_id, ldap_assembly, "listen", "LdapSrv",
+            listener = self.execute_custom_assembly_function(chain_id, ldap_assembly, "listen", "@port int", "LdapSrv",
                                                              "ldapAssembly", str(port), "FuncAsm", wait=False)
 
             if listener and listener['is_success']:
@@ -132,7 +132,7 @@ class Playbooks(Operations):
                 client.state = self.state
                 LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
                 client.options.debug = self.options.debug
-                client.build_chain(chain_id, utilities.format_strings(Queries.LDAP_QUERY, port=port),
+                client.build_chain(chain_id, query_builder.ldap_query("localhost", port),
                                    method="OpenQuery", adsi_provider=discovered_provider)
 
                 client.disconnect(rev2self=False)
