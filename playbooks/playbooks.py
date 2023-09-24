@@ -121,8 +121,10 @@ class Playbooks(Operations):
                         f"Do you want to retrieve passwords from {discovered_provider} provider?",
                         ["y", "n"], 'y'):
                     continue
-            listener = self.execute_custom_assembly_function(chain_id, ldap_assembly, "listen", "@port int", "LdapSrv",
-                                                             "ldapAssembly", str(port), "FuncAsm", wait=False)
+
+            listener = self.execute_custom_assembly(chain_id, 'function', ldap_assembly, "FuncAsm", "listen",
+                                                    "@port int", str(port), wait=False, class_name="LdapSrv",
+                                                    namespace="ldapAssembly")
 
             if listener and listener['is_success']:
                 client = Playbooks(self.server_address, self.username, self.options)
@@ -291,19 +293,23 @@ class Playbooks(Operations):
             return False
 
         asm_filename = "CmdExec-x64.dll" if arch_name == 'x64' else "CmdExec-x86.dll"
-        file_location = os.path.join(self.custom_asm_directory, asm_filename)
-        return self.execute_custom_assembly_procedure(chain_id, file_location, procedure_name, command, "CalcAsm",
-                                                      "@command NVARCHAR (4000)")
+        asm_file_location = os.path.join(self.custom_asm_directory, asm_filename)
 
-    def inject_custom_asm(self, chain_id: str, file_location: str, procedure_name: str = "Inject") -> bool:
-        if not file_location:
+        custom_asm_results = self.execute_custom_assembly(chain_id, "procedure", asm_file_location, "CalcAsm",
+                                                          procedure_name, "@command NVARCHAR (4000)", command)
+
+        return custom_asm_results['is_success']
+
+    def inject_custom_asm(self, chain_id: str, asm_file_location: str, procedure_name: str = "Inject") -> bool:
+        if not asm_file_location:
             LOG.error("File location is required for inject-custom-asm module")
             return False
-        if not os.path.exists(file_location):
-            LOG.error(f"{file_location} does not exist")
+        if not os.path.exists(asm_file_location):
+            LOG.error(f"{asm_file_location} does not exist")
             return False
-        return self.execute_custom_assembly_procedure(chain_id, file_location, procedure_name, "a", "SqlInject",
-                                                      "@command NVARCHAR (4000)")
+        custom_asm_results = self.execute_custom_assembly(chain_id, "procedure", asm_file_location, "SqlInject",
+                                                          procedure_name, "@command NVARCHAR (4000)", "a")
+        return custom_asm_results['is_success']
 
     def encapsulated_commands(self, chain_id: str, options):
         ret_val = False

@@ -133,7 +133,7 @@ def is_function_exists(function_name: str) -> str:
 
 def create_function(db_user: str, function_name: str, asm_name: str, namespace: str, class_name: str, args: str):
     return utilities.format_strings(Queries.CREATE_FUNCTION, db_user=db_user, function_name=function_name,
-                                    asm_name=asm_name, namespace=namespace, class_name=class_name, arg=args)
+                                    asm_name=asm_name, namespace=namespace, class_name=class_name, args=args)
 
 
 def is_app_trusted(asm_file_location: str) -> str:

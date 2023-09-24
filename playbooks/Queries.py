@@ -15,6 +15,8 @@ OPENQUERY = "SELECT * FROM OPENQUERY(\"{linked_server}\", '{query}');"
 EXEC_AT = "EXEC ('{query}') AT \"{linked_server}\";"
 SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, '{command}';"
 EXECUTE_PROCEDURE = "EXEC {procedure} '{command}';"
+EXECUTE_FUNCTION = "SELECT {db_user}.{function_name}({command});"
+
 SET_SERVER_OPTION = "EXEC sp_serveroption '{link_name}','{feature}','{status}';"
 
 # General queries
@@ -42,5 +44,4 @@ UNTRUST_MY_APP = "EXEC sp_drop_trusted_assembly @hash = {my_hash};"
 DROP_PROCEDURE = "DROP PROCEDURE {procedure_name};"
 DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
-EXECUTE_FUNCTION = "SELECT {db_user}.{function_name}({command});"
 LDAP_QUERY = "SELECT * FROM 'LDAP://{hostname}:{port}' "
