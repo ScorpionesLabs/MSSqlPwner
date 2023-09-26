@@ -165,7 +165,7 @@ class Playbooks(Operations):
             LOG.info(f"{chain_id} - {chain_str} ({user_name} {db_user}@{db_name})")
         return True
 
-    def get_linked_server_list(self) -> bool:
+    def _get_linked_server_list(self) -> bool:
         """
         This function is responsible to return the chain list.
         """
@@ -335,7 +335,7 @@ class Playbooks(Operations):
             elif options.module == 'get-chain-list':
                 ret_val = self.get_chain_list(options.filter_hostname)
             elif options.module == 'get-link-server-list':
-                ret_val = self.get_linked_server_list()
+                ret_val = self._get_linked_server_list()
             elif options.module == 'rev2self':
                 ret_val = self.call_rev2self()
             elif options.module == 'get-rev2self-queries':

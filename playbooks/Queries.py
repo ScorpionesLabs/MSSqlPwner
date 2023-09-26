@@ -20,8 +20,8 @@ EXECUTE_FUNCTION = "SELECT {db_user}.{function_name}({command});"
 SET_SERVER_OPTION = "EXEC sp_serveroption '{link_name}','{feature}','{status}';"
 
 # General queries
-SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domain_name, @@VERSION as server_version, @@servicename as instance_name, USER_NAME() as db_user, SYSTEM_USER as server_user, DB_NAME() AS db_name;"
-TRUSTWORTHY_DB_LIST = "SELECT name AS 'name' FROM sys.databases WHERE is_trustworthy_on = 1;"
+SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domain_name, @@VERSION as version, @@servicename as instance_name, USER_NAME() as db_user, SYSTEM_USER as server_user, DB_NAME() AS db_name;"
+TRUSTWORTHY_DB_LIST = "SELECT name FROM sys.databases WHERE is_trustworthy_on = 1;"
 
 # Permission checks
 IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
@@ -38,10 +38,10 @@ IS_PROCEDURE_EXISTS = "SELECT CASE WHEN OBJECT_ID('{procedure_name}') IS NOT NUL
 CREATE_PROCEDURE = "CREATE PROCEDURE [{procedure_name}] {args} AS EXTERNAL NAME [{asm_name}].[StoredProcedures].[{procedure_name}];"
 IS_FUNCTION_EXISTS = "SELECT CASE WHEN OBJECT_ID('{function_name}') IS NOT NULL THEN 'True' ELSE 'False' END as status;"
 CREATE_FUNCTION = "CREATE FUNCTION [{db_user}].{function_name}({args}) RETURNS NVARCHAR(MAX) AS EXTERNAL NAME {asm_name}.[{namespace}.{class_name}].{function_name};"
-IS_MY_APP_TRUSTED = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.trusted_assemblies WHERE hash = {my_hash}) THEN 'True' ELSE 'False' END AS [status];"
-TRUST_MY_APP = "EXEC sp_add_trusted_assembly @hash = {my_hash}, @description = N'Trusted Assembly for My Application';"
-UNTRUST_MY_APP = "EXEC sp_drop_trusted_assembly @hash = {my_hash};"
+IS_CUSTOM_ASM_TRUSTED = "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.trusted_assemblies WHERE hash = {my_hash}) THEN 'True' ELSE 'False' END AS [status];"
+TRUST_CUSTOM_ASM = "EXEC sp_add_trusted_assembly @hash = {my_hash}, @description = N'Trusted Assembly for My Application';"
+UNTRUST_CUSTOM_ASM = "EXEC sp_drop_trusted_assembly @hash = {my_hash};"
 DROP_PROCEDURE = "DROP PROCEDURE {procedure_name};"
-DROP_ASSEMBLY = "DROP ASSEMBLY {asm_name};"
+DROP_CUSTOM_ASM = "DROP ASSEMBLY {asm_name};"
 DROP_FUNCTION = "DROP FUNCTION {function_name};"
 LDAP_QUERY = "SELECT * FROM 'LDAP://{hostname}:{port}' "

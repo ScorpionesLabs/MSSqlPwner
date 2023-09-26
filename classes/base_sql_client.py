@@ -213,14 +213,6 @@ class BaseSQLClient(object):
                 return ret_val
         return ret_val
 
-    @staticmethod
-    def do_impersonation(principal_type: Literal['server', 'database'], user: str, query: str) -> str:
-        """
-        This function is responsible to impersonate as a server or database principal.
-        """
-        impersonation_query = query_builder.impersonate_as(principal_type, user)
-        return utilities.replace_strings(impersonation_query, {"[QUERY]": query})
-
     def configure_query_with_defaults(self, chain_id: str, query: str) -> str:
         """
         this function is responsible to add the default operations to a query
