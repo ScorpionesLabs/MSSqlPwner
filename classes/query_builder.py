@@ -56,7 +56,7 @@ class QueryBuilder(BaseSQLClient):
             LOG.error(f"Failed to check if {operation_name} exists")
             return False
 
-        return True if is_exists['results'][0]['status'] == 'True' else True
+        return True if is_exists['results'][0]['status'] == 'True' else False
 
     def create_operation(self, chain_id: str, operation_type: Literal['procedure', 'function'], asm_name: str,
                          operation_name: str, args: str, db_user: str = None, **kwargs) -> bool:
@@ -127,7 +127,7 @@ class QueryBuilder(BaseSQLClient):
         if not is_enabled['results']:
             LOG.error(f"Procedure {procedure_name} not found")
             return False
-        return is_enabled['results'][0][f'is_{procedure_name}_enabled'] == 'True'
+        return is_enabled['results'][0]['status'] == 'True'
 
     def reconfigure_procedure(self, chain_id: str, procedure: str, required_status: bool) -> bool:
         """
@@ -290,7 +290,7 @@ def _execute_procedure(procedure_name: str, command: str) -> str:
     if procedure_name == 'sp_oacreate':
         return utilities.format_strings(Queries.SP_OAMETHOD, command=command)
     else:
-        return utilities.format_strings(Queries.EXECUTE_PROCEDURE, procedure=procedure_name, command=command)
+        return utilities.format_strings(Queries.EXECUTE_PROCEDURE, procedure_name=procedure_name, command=command)
 
 
 def _set_server_options(link_name: str, feature: str, status: str) -> str:
@@ -304,7 +304,7 @@ def _is_procedure_enabled(procedure_name: str) -> str:
         "sp_oacreate": "Ole Automation Procedures"
     }
     procedure_name = procedure_name if procedure_name not in custom_names.keys() else custom_names[procedure_name]
-    return utilities.format_strings(Queries.IS_PROCEDURE_ENABLED, procedure=procedure_name)
+    return utilities.format_strings(Queries.IS_PROCEDURE_ENABLED, procedure_name=procedure_name)
 
 
 def _reconfigure_procedure(procedure_name: str, status: int) -> str:
@@ -312,7 +312,7 @@ def _reconfigure_procedure(procedure_name: str, status: int) -> str:
         "sp_oacreate": "Ole Automation Procedures"
     }
     procedure_name = procedure_name if procedure_name not in custom_names.keys() else custom_names[procedure_name]
-    return utilities.format_strings(Queries.RECONFIGURE_PROCEDURE, procedure=procedure_name, status=status)
+    return utilities.format_strings(Queries.RECONFIGURE_PROCEDURE, procedure_name=procedure_name, status=status)
 
 
 def _is_assembly_exists(assembly_name: str) -> str:

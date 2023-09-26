@@ -14,7 +14,8 @@ LINKED_SERVER_LIST = "SELECT name, provider, is_remote_login_enabled, is_rpc_out
 OPENQUERY = "SELECT * FROM OPENQUERY(\"{linked_server}\", '{query}');"
 EXEC_AT = "EXEC ('{query}') AT \"{linked_server}\";"
 SP_OAMETHOD = "DECLARE @myshell INT; EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT; EXEC sp_oamethod @myshell, 'run', null, '{command}';"
-EXECUTE_PROCEDURE = "EXEC {procedure} '{command}';"
+EXECUTE_PROCEDURE = "EXEC {procedure_name" \
+                    "} '{command}';"
 EXECUTE_FUNCTION = "SELECT {db_user}.{function_name}({command});"
 
 SET_SERVER_OPTION = "EXEC sp_serveroption '{link_name}','{feature}','{status}';"
@@ -24,11 +25,11 @@ SERVER_INFORMATION = "SELECT @@SERVERNAME as hostname, DEFAULT_DOMAIN() as domai
 TRUSTWORTHY_DB_LIST = "SELECT name FROM sys.databases WHERE is_trustworthy_on = 1;"
 
 # Permission checks
-IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
-IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure}') = 1 THEN 'True' ELSE 'False' END AS [procedure];"
+IS_PROCEDURE_ACCESSIBLE = "SELECT CASE WHEN OBJECT_ID('{procedure_name}', 'X') IS NOT NULL THEN 'True' ELSE 'False' END AS [is_accessible];"
+IS_PROCEDURE_ENABLED = "SELECT CASE WHEN (SELECT value_in_use FROM sys.configurations WHERE name = '{procedure_name}') = 1 THEN 'True' ELSE 'False' END AS [status];"
 
 # Configuration queries
-RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure}', {status}; RECONFIGURE;"
+RECONFIGURE_PROCEDURE = "EXEC sp_configure '{procedure_name}', {status}; RECONFIGURE;"
 
 
 # Custom assemblies queries

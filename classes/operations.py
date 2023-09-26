@@ -17,7 +17,6 @@ from typing import Literal, Any, Union
 
 # TODO: Move all the queries to the Queries file
 # TODO: Removes the is_link_in_chain and checks if there are different permissions instead, and if not, dont go in.
-# TODO: As the same for the operation_history
 # TODO: Review the code
 # TODO: Add dynamic bruteforce (Try to brute, and if success, dump the available users and try to brute them)
 
@@ -38,7 +37,6 @@ class Operations(query_builder.QueryBuilder):
         self.max_impersonation_depth = args_options.max_impersonation_depth
         self.auto_yes = args_options.auto_yes
         self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
-        self.operations_history = []
         self.deletion_list = set()
 
     def clone_chain_id(self, chain_id: str) -> str:
@@ -47,6 +45,7 @@ class Operations(query_builder.QueryBuilder):
         """
         new_chain_id = self.add_to_server_state(None, "cloned_from", chain_id)
         cloned = copy.deepcopy(self.state['servers_info'][chain_id])
+        # TODO: Remove it and simplify the code
         if cloned['chain_tree']:
             cloned['chain_tree'][-1][1] = new_chain_id
         self.add_to_server_state(new_chain_id, 'chain_tree', cloned['chain_tree'])
@@ -68,28 +67,11 @@ class Operations(query_builder.QueryBuilder):
         if not chain_id:
             chain_id = utilities.generate_link_id()
             self.state['servers_info'][chain_id] = {
-                "hostname": "",
-                "chain_str": "",
-                "chain_tree": list(),
-                "db_user": "",
-                "db_name": "",
-                "server_user": "",
-                "original_server_user": "",
-                "original_db_user": "",
-                "link_name": "",
-                "instance_name": "",
-                "version": "",
-                "domain_name": "",
-                "available_databases": set(),
-                "chain_id": chain_id,
-                "server_principals": set(),
-                "database_principals": set(),
-                "server_roles": set(),
-                "database_roles": set(),
-                "trustworthy_db_list": set(),
-                "adsi_providers": set(),
-                "walkthrough": list(),
-                "cloned_from": "",
+                "hostname": "", "chain_str": "", "chain_tree": list(), "db_user": "", "db_name": "", "server_user": "",
+                "original_server_user": "", "original_db_user": "", "link_name": "", "instance_name": "", "version": "",
+                "domain_name": "", "available_databases": set(), "chain_id": chain_id, "server_principals": set(),
+                "database_principals": set(), "server_roles": set(), "database_roles": set(),
+                "trustworthy_db_list": set(), "adsi_providers": set(), "walkthrough": list(), "cloned_from": "",
             }
 
         if key not in self.state['servers_info'][chain_id].keys():
@@ -116,10 +98,10 @@ class Operations(query_builder.QueryBuilder):
         """
             This function is responsible to filter the server by link name.
         """
-        link_information = utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)
-        if not link_information:
+        discovered_links = utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)
+        if not discovered_links:
             return []
-        link_information = link_information[0]
+        link_information = discovered_links[0]
         servers = utilities.filter_subdict_by_key(self.state['servers_info'], "hostname", link_information['hostname'])
         for server in servers:
             if server['domain_name'] != link_information['domain_name']:
@@ -131,18 +113,14 @@ class Operations(query_builder.QueryBuilder):
             This function is responsible to generate authentication details.
         """
         server_info = self.state['servers_info'][chain_id]
-        server_user = server_info['server_user']
-        if server_info['original_server_user']:
-            server_user = server_info['original_server_user']
+        original_server_user = server_info['original_server_user']
+        server_user = original_server_user if original_server_user else server_info['server_user']
 
-        db_user = server_info['db_user']
-        if server_info['original_db_user']:
-            db_user = server_info['original_db_user']
+        original_db_user = server_info['original_db_user']
+        db_user = original_db_user if original_db_user else server_info['db_user']
 
         db_name = self.state['servers_info'][chain_id]['db_name']
         for operation_type, operation_value in server_info['walkthrough']:
-            if not operation_value:
-                continue
             if operation_type == 'server':
                 server_user += f">{colored('I:', 'red')}{operation_value}"
             elif operation_type == 'database':
@@ -185,26 +163,25 @@ class Operations(query_builder.QueryBuilder):
         """
 
         filtered_servers = list(self.filter_server_by_link_name(link_name))
-
         if not filtered_servers:
             LOG.error(f"{link_name} is not in the linked servers list")
             return False
         LOG.info(f"Chosen linked server: {link_name}")
         return True
 
-    def is_link_in_chain(self, chain_id: str) -> bool:
+    def is_same_privileges(self, chain_id: str) -> bool:
         """
-            This function is responsible to check if the given linked server is in the state.
+            This function is responsible to check if the given chain id has the same privileges.
         """
 
         current_server_info = self.state['servers_info'][chain_id]
-        hosts_list = []
-        for _, captured_chain in current_server_info['chain_tree']:
-            server_info = self.state['servers_info'][captured_chain]
-            hosts_list.append(f"{server_info['hostname']}.{server_info['domain_name']}")
+        current_server_user = current_server_info['server_user']
+        current_db_user = current_server_info['db_user']
 
-        for host in hosts_list:
-            if hosts_list.count(host) > 1 and hosts_list[0] != host:
+        for server_info in self.filter_server_by_link_name(current_server_info['link_name']):
+            if server_info['chain_id'] == chain_id:
+                continue
+            if server_info['server_user'] == current_server_user and server_info['db_user'] == current_db_user:
                 return True
         return False
 
@@ -341,8 +318,6 @@ class Operations(query_builder.QueryBuilder):
             results.clear()
 
         LOG.info(f"Server information from {chain_str} is retrieved")
-        self.operations_history.append(("database", hostname, db_user))
-        self.operations_history.append(("server", hostname, server_user))
         yield chain_id
 
         if self.is_impersonation_depth_exceeded(chain_id):
@@ -358,10 +333,6 @@ class Operations(query_builder.QueryBuilder):
                 if principal_type == "server" and principal == server_user:
                     continue
                 if principal_type == "database" and principal == db_user:
-                    continue
-
-                if (principal_type, hostname, principal) in self.operations_history:
-                    LOG.warning(f"Principal {principal} already weaponized on {hostname}")
                     continue
 
                 walkthrough = (key.replace("_principals", ""), principal)
@@ -416,8 +387,8 @@ class Operations(query_builder.QueryBuilder):
             new_chain_id = self.add_to_server_state(new_chain_id, "chain_tree",
                                                     server_info['chain_tree'] + [[link_name, new_chain_id]])
             for collected_chain_id in self.retrieve_server_information(new_chain_id, link_name):
-                if self.is_link_in_chain(collected_chain_id):
-                    LOG.info(f"Link {link_name} already in chain {chain_str}")
+                if self.is_same_privileges(collected_chain_id):
+                    LOG.info(f"Same privileges on {chain_str} and {self.generate_chain_str(collected_chain_id)}")
                     self.deletion_list.add(collected_chain_id)
                     continue
                 if len(self.state['servers_info'][collected_chain_id]['chain_tree']) > self.max_link_depth:
@@ -445,26 +416,24 @@ class Operations(query_builder.QueryBuilder):
 
         return True
 
-    def execute_procedure(self, chain_id: str, procedure: str, command: str, reconfigure: bool = False) -> bool:
+    def execute_procedure(self, chain_id: str, procedure: str, command: str) -> bool:
         """
         This function is responsible to execute a procedure on a linked server.
         """
         if not self.is_procedure_accessible(chain_id, procedure):
             return False
 
-        if reconfigure:
-            if not self.reconfigure_procedure(chain_id, "show advanced options", required_status=True):
-                return False
+        if not self.reconfigure_procedure(chain_id, "show advanced options", required_status=True):
+            return False
 
-            if not self.reconfigure_procedure(chain_id, procedure, required_status=True):
-                return False
+        if not self.reconfigure_procedure(chain_id, procedure, required_status=True):
+            return False
 
+        print(procedure, command)
         procedure_results = self.execute_operation(chain_id, "procedure", procedure, command)
         chain_str = self.generate_chain_str(chain_id)
         if not procedure_results['is_success']:
             LOG.warning(f"Failed to execute {procedure} on {chain_str}")
-            if not reconfigure:
-                return self.execute_procedure(chain_id, procedure, command, reconfigure=True)
             return False
 
         LOG.info(f"The {procedure} command executed successfully on {chain_str}")
@@ -516,7 +485,7 @@ class Operations(query_builder.QueryBuilder):
             return {"is_success": False}
 
         db_user = self.state['servers_info'][chain_id]['db_user']
-        if not self.create_operation(chain_id, operation_type, operation_name, args, command, db_user, **kwargs):
+        if not self.create_operation(chain_id, operation_type, asm_name, operation_name, args, db_user, **kwargs):
             LOG.error(f"Failed to create custom {operation_name}")
             return {"is_success": False}
 
