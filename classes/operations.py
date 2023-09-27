@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3.1'
+__version__ = 'v1.3.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -27,6 +27,7 @@ class Operations(query_builder.QueryBuilder):
         self.use_state = not args_options.no_state
         self.username = user_name
         self.server_address = server_address
+        self.port = args_options.port
         self.debug = args_options.debug
         self.state_filename = f"{server_address}_{user_name}.state"
         self.max_link_depth = args_options.max_link_depth
@@ -34,6 +35,13 @@ class Operations(query_builder.QueryBuilder):
         self.auto_yes = args_options.auto_yes
         self.rev2self = dict()
         self.collected_chains = set()
+
+    def connect(self, username: str, password: str, domain: str) -> bool:
+        if not utilities.is_port_open(self.server_address, int(self.port), self.options.timeout):
+            LOG.info(f"{self.server_address}:{self.port} is closed, skipping.")
+            return False
+        LOG.info(f"Connecting to {self.server_address}:{self.port} as {username}")
+        return super().connect(username, password, domain)
 
     def get_server_info(self, chain_id):
         if chain_id not in self.state['servers_info'].keys():

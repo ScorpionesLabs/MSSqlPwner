@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3.1'
+__version__ = 'v1.3.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -19,7 +19,8 @@ from impacket.tds import TDS_SQL_BATCH
 
 class BaseSQLClient(object):
     def __init__(self, address: str, options) -> None:
-        self.ms_sql = tds.MSSQL(address, int(options.port))
+        self.port = options.port
+        self.ms_sql = tds.MSSQL(address, int(self.port))
         self.debug = options.debug
         self.options = options
         self.domain = None

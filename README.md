@@ -16,8 +16,15 @@ If the authenticated MSSQL user does not have permission to execute certain oper
 For example, if your user cant execute commands in the current context, the tool will build a chain that will use a link server and connect back to our server with escelated privileges.
 
 ## Example
+
+### Command execution
 <p align="center">
  <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/poc.png?raw=true">
+</p>
+
+### Bruteforce
+<p align="center">
+ <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/brute.png?raw=true">
 </p>
 
 This tool is supported by multiple authentication methods and described below.
@@ -100,6 +107,19 @@ This tool is designed for security professionals and researchers for testing pur
   - Supported methods:
     - `OpenQuery` - Use `OpenQuery` procedure (Default).
     - `exec_at` - Use `exec AT` procedure.
+7. Bruteforce
+- `brute` Launch bruteforce (Can receives tickets, hashes and passwords)
+- Required arguments:
+    - `TARGETS_FILE` - a file contains hosts and ips to brute.
+    - `-ul` - a file contains users to brute.
+- Optional arguments:
+  - `-pl` - a file contains passwords to brute.
+  - `-tl` - a file contains tickets to brute.
+  - `-hl` - a file contains hashes to brute.
+- Notes:
+- If you want to use tickets, you should use Service Principal Name (SPN) format (Like MSSQLSvc/hostname.domain.com:1433).
+- If you use tickets, you not required to set passwords or hashes.
+- If you DONT use tickets, you should provide at least password file or hash file.
   
 ## General optional arguments (Should be BEFORE the chosen function):
 - `-link-name` - The link server name to use
@@ -107,6 +127,7 @@ This tool is designed for security professionals and researchers for testing pur
 - `-max-link-depth` - The maximum link depth to use (Default: 10)
 - `-max-impersonation-depth` - The maximum impersonation depth to use (Default: 10)
 - `-auto-yes` - Automatically answer yes to all questions (Default: False)
+- `-timeout` - The timeout to use (Default: 30)
 
 
 ## Lateral Movement and Chain Exploration:
@@ -138,6 +159,7 @@ python3 MSSqlPwner.py
 
 ## Usage
 ```
+
 # Interactive mode
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth interactive
 
@@ -174,6 +196,22 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server 
 
 # Execute code using custom assembly on the linked server DC01
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 inject-custom-asm SqlInject.dll
+
+# Bruteforce using tickets, hashes, and passwords against the hosts listed on the hosts.txt
+python3 MSSqlPwner.py hosts.txt brute -tl tickets.txt -ul users.txt -hl hashes.txt -pl passwords.txt
+
+# Bruteforce using hashes, and passwords against the hosts listed on the hosts.txt
+python3 MSSqlPwner.py hosts.txt brute -ul users.txt -hl hashes.txt -pl passwords.txt
+
+# Bruteforce using tickets against the hosts listed on the hosts.txt
+python3 MSSqlPwner.py hosts.txt brute -tl tickets.txt -ul users.txt
+
+# Bruteforce using passwords against the hosts listed on the hosts.txt
+python3 MSSqlPwner.py hosts.txt brute -ul users.txt -pl passwords.txt
+
+# Bruteforce using hashes against the hosts listed on the hosts.txt
+python3 MSSqlPwner.py hosts.txt brute -ul users.txt -hl hashes.txt
+
 ```
 
 

@@ -1,7 +1,7 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3.1'
+__version__ = 'v1.3.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
@@ -9,6 +9,7 @@ __email__ = ['El3ct71k@gmail.com']
 import os
 import re
 import json
+import socket
 import string
 import random
 import argparse
@@ -126,13 +127,13 @@ def escape_double_quotes(query: str, amount:  int) -> str:
     return query.replace('"', '"' * amount)
 
 
-def _count_quotes(string, index, quote_type):
+def _count_quotes(string_to_count, index, quote_type):
     """
     This inline-used function is responsible to count the number of quotes.
     """
     count = 0
     for i in range(index, 0, -1):
-        if string[i] != quote_type:
+        if string_to_count[i] != quote_type:
             break
         count += 1
     return count
@@ -302,6 +303,35 @@ def calculate_sha512_hash(file_path: str) -> str:
     return f"0x{sha512_hash.hexdigest()}"
 
 
+def is_port_open(host, port, timeout):
+    try:
+        # Create a socket object
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Set a timeout of 5 seconds
+        sock.settimeout(timeout)
+
+        # Attempt to connect to the host and port
+        sock.connect((host, port))
+        sock.close()
+        # If the connection succeeds, the port is open
+        return True
+    except socket.error:
+        # If an error occurs, the port is likely closed
+        return False
+
+
+def is_valid_ip(input_str: str) -> bool:
+    try:
+        socket.inet_pton(socket.AF_INET, input_str)
+        return True  # Valid IPv4 address
+    except socket.error:
+        try:
+            socket.inet_pton(socket.AF_INET6, input_str)
+            return True  # Valid IPv6 address
+        except socket.error:
+            return False  # Not a valid IP address
+
+
 class MyArgumentParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         # Call the parent class's constructor
@@ -337,6 +367,7 @@ def generate_arg_parser():
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
+    parser.add_argument('-timeout', action='store', default=30, help='timeout in seconds (default 30)', type=int)
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
     parser.add_argument('-windows-auth', action='store_true', default=False, help='whether or not to use Windows '
                                                                                   'Authentication (default False)')
@@ -375,7 +406,8 @@ def generate_arg_parser():
     modules.add_parser('rev2self', help='Revert to SELF (For interactive-mode only!)')
     modules.add_parser('get-rev2self-queries', help='Retrieve queries to revert to SELF (For interactive-mode only!)')
     get_chain_list = modules.add_parser('get-chain-list', help='Get chain list')
-    get_chain_list.add_argument("-filter-hostname", help="Get filtered results with specific hostname", default=None, type=str)
+    get_chain_list.add_argument("-filter-hostname", help="Get filtered results with specific hostname", default=None,
+                                type=str)
     modules.add_parser('get-link-server-list', help='Get linked server list')
     modules.add_parser('get-adsi-provider-list', help='Get ADSI provider list')
     set_link_server = modules.add_parser('set-link-server', help='Set link server (For interactive-mode only!)')
@@ -412,5 +444,11 @@ def generate_arg_parser():
                                     default=None)
     retrieve_passwords.add_argument("-arch", choices=['x86', 'x64', 'autodetect'], default='autodetect')
     modules.add_parser('interactive', help='Interactive Mode')
+
+    dynamic_brute = modules.add_parser('brute', help='Brute force')
+    dynamic_brute.add_argument("-ul", help="User list", default="", required=True)
+    dynamic_brute.add_argument("-pl", help="Password list", default="")
+    dynamic_brute.add_argument("-hl", help="Hash List", default="")
+    dynamic_brute.add_argument("-tl", help="Ticket List", default="")
 
     return parser, list(modules.choices.keys())

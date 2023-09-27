@@ -2,10 +2,11 @@
 ########################################################
 __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
-__version__ = 'v1.3.1'
+__version__ = 'v1.3.2'
 __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
+
 import sys
 import readline
 import utilities
@@ -26,6 +27,11 @@ def main():
         return
 
     options = parser.parse_args()
+
+    if options.module == "brute":
+        mssql_client = Playbooks("", "", options)
+        mssql_client.bruteforce(options.target, options.ul, options.pl, options.hl, options.tl)
+        return
 
     if not options.target:
         LOG.error("target must be supplied!")
@@ -48,6 +54,7 @@ def main():
         options.k = True
 
     mssql_client = Playbooks(address, username, options)
+
     if not mssql_client.connect(username, password, domain):
         return
     if not mssql_client.enumerate(print_state=False):
