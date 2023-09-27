@@ -14,7 +14,7 @@ import readline
 import utilities
 from impacket import LOG
 from typing import Literal
-from classes import query_builder
+from playbooks import Queries
 from classes.operations import Operations
 from impacket.examples.utils import parse_target
 
@@ -91,7 +91,7 @@ class Playbooks(Operations):
         This function is responsible to retrieve passwords from the server using custom assemblies.
         """
         domain, username, password, address = parse_target(target)
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
         if not server_info['adsi_providers']:
             LOG.error("No ADSI providers found")
             return True
@@ -132,7 +132,7 @@ class Playbooks(Operations):
                 client.state = self.state
                 LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
                 client.options.debug = self.options.debug
-                client.build_chain(chain_id, query_builder.ldap_query("localhost", port),
+                client.build_chain(chain_id, Queries.ldap_query("localhost", port),
                                    method="OpenQuery", adsi_provider=discovered_provider)
 
                 client.disconnect(rev2self=False)

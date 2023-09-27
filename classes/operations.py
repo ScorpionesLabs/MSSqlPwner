@@ -64,20 +64,20 @@ class Operations(query_builder.QueryBuilder):
                 "database_principals": set(), "server_roles": set(), "database_roles": set(),
                 "trustworthy_db_list": set(), "adsi_providers": set(), "walkthrough": list(), "cloned_from": "",
             }
-
-        if key not in self.state['servers_info'][chain_id].keys():
+        server_info = self.get_server_info(chain_id)
+        if key not in server_info.keys():
             raise Exception(f"Key {key} is not in the server state.")
 
-        server_info = self.state['servers_info'][chain_id][key]
+        server_info_key = server_info[key]
 
-        if isinstance(server_info, list) or isinstance(server_info, set):
+        if isinstance(server_info_key, list) or isinstance(server_info_key, set):
             for v in [value] if not isinstance(value, list) else value:
-                if isinstance(server_info, list):
+                if isinstance(server_info_key, list):
                     self.state['servers_info'][chain_id][key].append(v)
                 else:
                     self.state['servers_info'][chain_id][key].add(v)
 
-        elif isinstance(server_info, dict):
+        elif isinstance(server_info_key, dict):
             for k, v in value.items():
                 self.state['servers_info'][chain_id][key][k] = v
         else:
@@ -127,7 +127,7 @@ class Operations(query_builder.QueryBuilder):
         """
             This function is responsible to generates chain string by chain id.
         """
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
         if not server_info['chain_tree']:
             chain_str = server_info['hostname']
             if print_authentication_details:
@@ -363,19 +363,18 @@ class Operations(query_builder.QueryBuilder):
 
             if not row['is_remote_login_enabled']:
                 LOG.info(f"Remote login is disabled on {link_name}")
-                LOG.info(f"Set rpc to true on {chain_str}")
                 self.set_server_options(chain_id, link_name, 'rpc', 'true')
             if not row['is_rpc_out_enabled']:
                 LOG.info(f"RPC out is disabled on {link_name}")
-                LOG.info(f"Set rpc out to true on {chain_str}")
                 self.set_server_options(chain_id, link_name, 'rpc out', 'true')
 
             chain_str = f"{chain_str} -> {link_name}"
             new_chain_id = self.add_to_server_state(None, "link_name", link_name)
-            new_chain_id = self.add_to_server_state(new_chain_id, "chain_tree",
-                                                    server_info['chain_tree'] + [[link_name, new_chain_id]])
+            self.add_to_server_state(new_chain_id, "chain_tree",
+                                     server_info['chain_tree'] + [[link_name, new_chain_id]])
             for collected_chain_id in self.retrieve_server_information(new_chain_id, link_name):
-                if len(self.state['servers_info'][collected_chain_id]['chain_tree']) > self.max_link_depth:
+                collected_server_info = self.get_server_info(collected_chain_id)
+                if len(collected_server_info['chain_tree']) > self.max_link_depth:
                     LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_link_depth})")
                     continue
 

@@ -9,11 +9,11 @@ __email__ = ['El3ct71k@gmail.com']
 import copy
 import logging
 import utilities
-from classes import query_builder
 from impacket import tds
 from impacket import LOG
 from typing import Union
 from impacket import version
+from playbooks import Queries
 from impacket.tds import TDS_SQL_BATCH
 
 
@@ -170,7 +170,7 @@ class BaseSQLClient(object):
 
         link_name, chain_id = chain_tree.pop()
         query = self.configure_query_with_defaults(chain_id, query)
-        new_query = query_builder.link_query(link_name, query, method) if len(chain_tree) > 0 else query
+        new_query = Queries.link_query(link_name, query, method) if len(chain_tree) > 0 else query
         yield from self.build_query_chain(chain_tree, new_query, method)
 
     def generate_query(self, chain_id: str, query: str,
@@ -191,7 +191,7 @@ class BaseSQLClient(object):
             yield query
             return
 
-        server_info = copy.deepcopy(self.state['servers_info'][chain_id])
+        server_info = self.get_server_info(chain_id).copy()
         yield from self.build_query_chain(server_info['chain_tree'], query, method)
 
     def build_chain(self, chain_id: str, query: str, method: str = "OpenQuery",
@@ -211,7 +211,7 @@ class BaseSQLClient(object):
             indicates_success = []
         query_tpl = "[PAYLOAD]"
         if adsi_provider:
-            query_tpl = query_builder.link_query(adsi_provider, query_tpl, method)
+            query_tpl = Queries.link_query(adsi_provider, query_tpl, method)
         for query_tpl in self.generate_query(chain_id, query_tpl, method):
             chained_query = utilities.replace_strings(query_tpl, {"[PAYLOAD]": query})
             ret_val = self.custom_sql_query(chained_query, print_results=print_results, decode_results=decode_results,
@@ -239,3 +239,6 @@ class BaseSQLClient(object):
         This function is responsible to disconnect from the database.
         """
         self.ms_sql.disconnect()
+
+    def get_server_info(self, chain_id):
+        raise NotImplementedError
