@@ -364,20 +364,20 @@ def generate_arg_parser():
     module.add_argument("-max-link-depth", help="Maximum links you want to depth recursively", default=10,
                         type=int)
     module.add_argument("-max-impersonation-depth", help="Maximum impersonation you want to depth in each link",
-                        default=2, type=int)
+                        default=10, type=int)
     module.add_argument("-chain-id", help="Chain ID to use", default=None, type=str)
     module.add_argument("-auto-yes", help="Auto answer yes to all questions", action='store_true', default=False)
 
     modules = parser.add_subparsers(title='Modules', dest='module')
     modules.add_parser('enumerate', help='Enumerate MSSQL server')
     set_chain = modules.add_parser('set-chain', help='Set chain ID (For interactive-mode only!)')
+    set_chain.add_argument("chain", help="Chain ID to use", type=str)
     modules.add_parser('rev2self', help='Revert to SELF (For interactive-mode only!)')
     modules.add_parser('get-rev2self-queries', help='Retrieve queries to revert to SELF (For interactive-mode only!)')
     get_chain_list = modules.add_parser('get-chain-list', help='Get chain list')
     get_chain_list.add_argument("-filter-hostname", help="Get filtered results with specific hostname", default=None, type=str)
     modules.add_parser('get-link-server-list', help='Get linked server list')
     modules.add_parser('get-adsi-provider-list', help='Get ADSI provider list')
-    set_chain.add_argument("chain", help="Chain ID to use", type=str)
     set_link_server = modules.add_parser('set-link-server', help='Set link server (For interactive-mode only!)')
     set_link_server.add_argument("link", help="Linked server to launch queries")
     command_execution = modules.add_parser('exec', help='Command to execute')
@@ -402,11 +402,11 @@ def generate_arg_parser():
 
     direct_query = modules.add_parser('direct-query', help='Execute direct query')
     direct_query.add_argument("query", help="Query to execute")
-    direct_query.add_argument("-method", choices=['OpenQuery', 'exec_at'], default='OpenQuery')
+    direct_query.add_argument("-query-method", choices=['OpenQuery', 'exec_at'], default='OpenQuery')
 
     retrieve_passwords = modules.add_parser('retrieve-password', help='Retrieve password from ADSI servers')
     retrieve_passwords.add_argument("-listen-port",
-                                    help="Port to listen on (default 1489)", type=int, default=1489)
+                                    help="Port to listen on (default 1489)", type=int, default=1389)
     retrieve_passwords.add_argument("-adsi-provider", help="choose ADSI provider "
                                                            "(if not defined, it will choose automatically)",
                                     default=None)

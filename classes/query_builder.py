@@ -3,20 +3,56 @@ __author__ = ['Nimrod Levy']
 __license__ = 'GPL v3'
 __version__ = 'v1.3.1'
 __email__ = ['El3ct71k@gmail.com']
-
 ########################################################
 
+import utilities
+from abc import ABC
 from impacket import LOG
-from typing import Literal
 from playbooks import Queries
+from typing import Literal, Union
 from classes.base_sql_client import BaseSQLClient
 
 
-class QueryBuilder(BaseSQLClient):
+class QueryBuilder(BaseSQLClient, ABC):
     def __init__(self, server_address, args_options):
         super().__init__(server_address, args_options)
         self.high_privileged_server_roles = ['sysadmin']
         self.high_privileged_database_roles = ['db_owner']
+
+    def build_chain(self, chain_id: str, query: str, method: str = "OpenQuery",
+                    decode_results: bool = True, print_results: bool = False, adsi_provider: str = None,
+                    wait: bool = True, indicates_success: list = None,
+                    used_methods: set = None) -> Union[dict, utilities.CustomThread]:
+        """
+         This function is responsible to build the query chain for the given query and method.
+        """
+        method_list = ['OpenQuery', 'exec_at']
+        if method not in method_list:
+            raise Exception(f"Method {method} not supported. Supported methods: {method_list}")
+        ret_val = {}
+        if not used_methods:
+            used_methods = set()
+        if not indicates_success:
+            indicates_success = []
+        query_tpl = "[PAYLOAD]"
+        if adsi_provider:
+            query_tpl = Queries.link_query(adsi_provider, query_tpl, method)
+        for query_tpl in self.generate_query(chain_id, query_tpl, method):
+            chained_query = utilities.replace_strings(query_tpl, {"[PAYLOAD]": query})
+            ret_val = self.custom_sql_query(chained_query, print_results=print_results, decode_results=decode_results,
+                                            wait=wait, indicates_success=indicates_success)
+            ret_val['template'] = query_tpl
+            if ret_val['is_success']:
+                return ret_val
+            return ret_val
+        used_methods.add(method)
+        for new_method in method_list:
+            if new_method == method or new_method in used_methods:
+                continue
+            LOG.info(f"Trying {new_method} method")
+            return self.build_chain(chain_id, query, new_method, decode_results, print_results, adsi_provider, wait,
+                                    indicates_success, used_methods)
+        return ret_val
 
     def add_rev2self_query(self, chain_id: str, query: str, template: str) -> None:
         """
@@ -112,6 +148,9 @@ class QueryBuilder(BaseSQLClient):
         """
         This function is responsible to check if a procedure is accessible.
         """
+        if not self.is_operation_exists(chain_id, 'procedure', procedure_name):
+            LOG.error(f"Procedure {procedure_name} not found")
+            return True
         is_procedure_accessible = self.build_chain(chain_id, Queries.is_procedure_accessible(procedure_name))
 
         if not is_procedure_accessible['is_success']:
@@ -200,7 +239,8 @@ class QueryBuilder(BaseSQLClient):
         """
         this function is responsible to add the default operations to a query
         """
-        server_info = self.get_server_information(chain_id)
+        server_info = self.get_server_info(chain_id)
+
         for operation_type, operation_value in server_info['walkthrough'][::-1]:
             if operation_type in ['server', 'database']:
                 query = Queries.impersonate_as(operation_type, operation_value, query)

@@ -10,7 +10,6 @@ import os
 import sys
 import json
 import logging
-import readline
 import utilities
 from impacket import LOG
 from typing import Literal
@@ -163,7 +162,7 @@ class Playbooks(Operations):
             LOG.info(f"{chain_id} - {chain_str} ({user_name} {db_user}@{db_name})")
         return True
 
-    def _get_linked_server_list(self) -> bool:
+    def get_linked_server_list(self) -> bool:
         """
         This function is responsible to return the chain list.
         """
@@ -313,18 +312,27 @@ class Playbooks(Operations):
         ret_val = False
         try:
             if options.module == 'exec':
+                if not options.command:
+                    return False
+
                 ret_val = self.execute_command_by_procedure(chain_id, options.command_execution_method, options.command)
 
             elif options.module == 'ntlm-relay':
+                if not options.smb_server:
+                    return False
                 ret_val = self.ntlm_relay(chain_id, options.relay_method, options.smb_server)
 
             elif options.module == 'custom-asm':
+                if not options.command:
+                    return False
                 ret_val = self.custom_asm(chain_id, options.arch, options.procedure_name, options.command)
             elif options.module == 'inject-custom-asm':
                 self.inject_custom_asm(chain_id, options.file_location, options.procedure_name)
 
             elif options.module == 'direct-query':
-                ret_val = self.execute_direct_query(chain_id, options.method, options.query)
+                if not options.query:
+                    return False
+                ret_val = self.execute_direct_query(chain_id, options.query_method, options.query)
 
             elif options.module == 'retrieve-password':
                 ret_val = self.retrieve_password(chain_id, options.listen_port, options.adsi_provider, options.arch,
@@ -333,7 +341,7 @@ class Playbooks(Operations):
             elif options.module == 'get-chain-list':
                 ret_val = self.get_chain_list(options.filter_hostname)
             elif options.module == 'get-link-server-list':
-                ret_val = self._get_linked_server_list()
+                ret_val = self.get_linked_server_list()
             elif options.module == 'rev2self':
                 ret_val = self.call_rev2self()
             elif options.module == 'get-rev2self-queries':
@@ -353,7 +361,8 @@ class Playbooks(Operations):
         link_name = link_name if link_name else self.state['hostname']
         if options.module == "enumerate":
             # It returned without calling since it is already called in the main function.
-            return self.enumerate()
+            utilities.print_state(self.state)
+            return True
 
         if chain_id:
             if not self.is_valid_chain_id(chain_id):

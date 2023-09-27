@@ -29,33 +29,84 @@ This tool is designed for security professionals and researchers for testing pur
 1. Utilities:
 - `interactive`: allow to use the tool interactively with live execution.
 - `enumerate`: enumerate the linked servers and the chains.
-- `get-chain-list` get the list of the chains (You can filter by hostname using the flag `-filter-hostname HOSTNAME`).
+- `` get the list of the chains:
+  - Optional arguments:
+    - `` - Get filtered results with specific hostname.
 - `get-link-server-list` get the list of the linked servers.
 - `set-chain` Set chain ID (For interactive-mode only!)
+  - Required arguments:
+    - `CHAIN` - The chain ID to set.
 - `set-link-server` Set link server (For interactive-mode only!)
+  - Required arguments:
+    - `LINK` - The link server to set.
 - `get-rev2self-queries` retrieve queries to revert to SELF (For interactive-mode only!).
 - `get-adsi-provider-list` retrieve ADSI provider list.
 - `rev2self` revert to SELF (For interactive-mode only!).
 
 2. Command Execution: Execute commands using the following functions:
-- `xp_cmdshell` Execute commands using `xp_cmdshell` on local server or on linked servers
-- `sp_oacreate` Execute commands using Ole Automation Procedure technique on local server or on linked servers
+- `exec` Execute commands using `exec` on local server or on linked servers
+  - Required arguments:
+    - `COMMAND` - The command to execute.
+  - Optional arguments:
+    - `-command_execution_method` - The command execution method to use.
+      - Supported methods:
+        - `xp_cmdshell` - Execute commands using `xp_cmdshell` procedure (Default).
+        - `sp_oacreate` - Execute commands using `Ole Automation Procedure` procedure (Should be used like "cmd /c something").
 
 3. Password Retrieval:
-- `retrive-password` Password retrieval from the linked server.
+- `retrieve-password` Password retrieval from ADSI providers.
+  - Optional arguments:
+    - `-listen-port` - The port to listen on (Default: 1389).
+    - `-adsi-provider` - ADSI Provider to use (if not defined, it will choose automatically).
+    - `-arch` - The architecture to use (if not defined, it will choose automatically).
+      - Supported architectures:
+        - `x86` - Use x86 architecture.
+        - `x64` - Use x64 architecture.
 
 4. NTLM Hash Stealing and Relay: Issue NTLM relay or steal NTLM hashes using the following functions:
-- `xp_dirtree` NTLM stealing using directory listing on local server or on linked servers
-- `xp_subdirs` NTLM stealing using subdirectory listing on local server or on linked servers
-- `xp_fileexist` NTLM Stealing using file existence check on local server or on linked servers
+- `ntlm-relay` - Force NTLM relay to a server.
+  - Required arguments:
+      - `SMB_SERVER` - The SMB server to relay to.
+  - Optional arguments:
+    - `-relay-method` - The relay method to use.
+      - Supported methods:
+        - `xp_dirtree` - Use `xp_dirtree` procedure (Default).
+        - `xp_subdirs` - Use `xp_subdirs` procedure.
+        - `xp_fileexist` - Use `xp_fileexist` procedure (In some situations this module should be executed from privileged chain).
 
-5. Procedure execution using custom assembly and stored procedures:
-- `execute_command` procedure executing commands using custom assembly on local server or on linked servers
-- `run_query` procedure executing queries using custom assembly on local server or on linked servers
-- `run_query_system_service` procedure executing queries using custom assembly on local server or on linked servers as system user
-- `inject-custom-asm` Inject code using custom assembly on local server or on linked servers (You can use modify the following [DLL Example](https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/playbooks/custom-asm/Inject.cs).
+5. Procedure execution using custom assembly:
+- `custom-asm` - Execute procedures using custom assembly
+  - Required arguments:
+      - `COMMAND` - The command/path or query to use.
+  - Optional arguments:
+    - `-procedure-name` - The procedure name to use (Default: `execute_command`).
+      - Supported procedures:
+      - `execute_command` - Execute commands using custom assembly (Default).
+      - `run_query` - Execute queries using custom assembly.
+      - `run_query_system_service` - Execute queries using custom assembly as system user (Like SqlSVC).
+- 
+- `inject-custom-asm` Inject code using custom assembly.
+  - Required arguments:
+      - `file_location` - The file location to inject.
+  - Optional arguments:
+  - `-procedure-name` - The procedure name to use (Default: `Inject`).
+  
 6. Direct Queries 
-- `direct-query` Execute direct queries on local server or on linked servers
+- `direct-query` Execute direct queries
+- Required arguments:
+    - `QUERY` - The query to execute.
+- Optional arguments:
+- `-query-method` - The query method to use.
+  - Supported methods:
+    - `OpenQuery` - Use `OpenQuery` procedure (Default).
+    - `exec_at` - Use `exec AT` procedure.
+  
+## General optional arguments (Should be BEFORE the chosen function):
+- `-link-name` - The link server name to use
+- `-chain-id` - The chain ID to use
+- `-max-link-depth` - The maximum link depth to use (Default: 10)
+- `-max-impersonation-depth` - The maximum impersonation depth to use (Default: 10)
+- `-auto-yes` - Automatically answer yes to all questions (Default: False)
 
 
 ## Lateral Movement and Chain Exploration:

@@ -191,54 +191,26 @@ class BaseSQLClient(object):
             yield query
             return
 
-        server_info = self.get_server_info(chain_id).copy()
+        server_info = copy.deepcopy(self.get_server_info(chain_id))
         yield from self.build_query_chain(server_info['chain_tree'], query, method)
-
-    def build_chain(self, chain_id: str, query: str, method: str = "OpenQuery",
-                    decode_results: bool = True, print_results: bool = False, adsi_provider: str = None,
-                    wait: bool = True, indicates_success: list = None,
-                    used_methods: set = None) -> Union[dict, utilities.CustomThread]:
-        """
-         This function is responsible to build the query chain for the given query and method.
-        """
-        method_list = ['OpenQuery', 'exec_at']
-        if method not in method_list:
-            raise Exception(f"Method {method} not supported. Supported methods: {method_list}")
-        ret_val = {}
-        if not used_methods:
-            used_methods = set()
-        if not indicates_success:
-            indicates_success = []
-        query_tpl = "[PAYLOAD]"
-        if adsi_provider:
-            query_tpl = Queries.link_query(adsi_provider, query_tpl, method)
-        for query_tpl in self.generate_query(chain_id, query_tpl, method):
-            chained_query = utilities.replace_strings(query_tpl, {"[PAYLOAD]": query})
-            ret_val = self.custom_sql_query(chained_query, print_results=print_results, decode_results=decode_results,
-                                            wait=wait, indicates_success=indicates_success)
-            ret_val['template'] = query_tpl
-            if ret_val['is_success']:
-                return ret_val
-        used_methods.add(method)
-        for new_method in method_list:
-            if new_method == method or new_method in used_methods:
-                continue
-            LOG.info(f"Trying {new_method} method")
-            return self.build_chain(chain_id, query, new_method, decode_results, print_results, adsi_provider, wait,
-                                    indicates_success, used_methods)
-        return ret_val
-
-    def configure_query_with_defaults(self, chain_id: str, query: str) -> str:
-        """
-        this function is responsible to add the default operations to a query
-        """
-        raise NotImplementedError
 
     def disconnect(self) -> None:
         """
         This function is responsible to disconnect from the database.
         """
         self.ms_sql.disconnect()
+
+    def build_chain(self, chain_id: str, query: str, method: str = "OpenQuery",
+                    decode_results: bool = True, print_results: bool = False, adsi_provider: str = None,
+                    wait: bool = True, indicates_success: list = None,
+                    used_methods: set = None) -> Union[dict, utilities.CustomThread]:
+        raise NotImplementedError
+
+    def configure_query_with_defaults(self, chain_id: str, query: str) -> str:
+        """
+        this function is responsible to add the default operations to a query
+        """
+        raise NotImplementedError
 
     def get_server_info(self, chain_id):
         raise NotImplementedError

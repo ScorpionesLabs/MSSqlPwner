@@ -7,6 +7,7 @@ __email__ = ['El3ct71k@gmail.com']
 
 ########################################################
 import sys
+import readline
 import utilities
 from impacket import LOG
 from getpass import getpass

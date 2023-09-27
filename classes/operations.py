@@ -7,6 +7,7 @@ __email__ = ['El3ct71k@gmail.com']
 ########################################################
 
 import os
+import copy
 import utilities
 from impacket import LOG
 from termcolor import colored
@@ -44,7 +45,7 @@ class Operations(query_builder.QueryBuilder):
             This function is responsible to clone the chain id.
         """
         new_chain_id = utilities.generate_link_id()
-        cloned_chain = self.get_server_info(chain_id).copy()
+        cloned_chain = copy.deepcopy(self.get_server_info(chain_id))
         cloned = utilities.recursive_replace(cloned_chain, chain_id, new_chain_id)
         cloned['cloned_from'] = new_chain_id
         self.state['servers_info'][new_chain_id] = cloned
@@ -229,10 +230,8 @@ class Operations(query_builder.QueryBuilder):
             This function is responsible to retrieve the server information.
         """
 
-        server_information = self.get_server_information(chain_id)
-
         enumeration_results = {
-            "server_information": server_information,
+            "server_information": self.get_server_information(chain_id),
             "trustworthy_db_list": self.get_trustworthy_db_list(chain_id),
             "server_roles": self.get_user_roles(chain_id, user_type="server"),
             "database_roles": self.get_user_roles(chain_id, user_type="database"),
@@ -253,15 +252,12 @@ class Operations(query_builder.QueryBuilder):
         db_user = enumeration_results['server_information']['results'][0]['db_user']
         server_user = enumeration_results['server_information']['results'][0]['server_user']
         hostname = utilities.remove_instance_name(enumeration_results['server_information']['results'][0]['hostname'])
-
         if not link_name:
             LOG.info(f"Discovered hostname: {hostname}")
             self.state['hostname'] = hostname
             chain_id = self.add_to_server_state(chain_id, "hostname", hostname)
             self.add_to_server_state(chain_id, "chain_tree", [[hostname, chain_id]])
             link_name = hostname
-
-        server_info = self.get_server_info(chain_id)
 
         for k, v in {"hostname": hostname, "link_name": link_name, "db_user": db_user, "server_user": server_user,
                      "version": enumeration_results['server_information']['results'][0]['version'],
@@ -272,10 +268,8 @@ class Operations(query_builder.QueryBuilder):
 
         chain_str = self.generate_chain_str(chain_id)
         self.add_to_server_state(chain_id, "chain_str", self.generate_chain_str(chain_id))
-
         if self.is_same_privileges(chain_id):
-            previous_chain_str = self.generate_chain_str(chain_id)
-            LOG.info(f"The privileges of {previous_chain_str} -> {colored(link_name, 'green')} already chained.")
+            LOG.info(f"The privileges of {chain_str} already chained.")
             del self.state['servers_info'][chain_id]
             return
 
@@ -285,6 +279,7 @@ class Operations(query_builder.QueryBuilder):
                     self.add_to_server_state(chain_id, key, enumeration_result)
 
         results = list()
+        server_info = self.get_server_info(chain_id)
         for key in ["server_principals", "database_principals"]:
             principal_type = "server" if key == "server_principals" else "database"
             for principal_results_dict in enumeration_results[key]['results']:
@@ -372,6 +367,7 @@ class Operations(query_builder.QueryBuilder):
             new_chain_id = self.add_to_server_state(None, "link_name", link_name)
             self.add_to_server_state(new_chain_id, "chain_tree",
                                      server_info['chain_tree'] + [[link_name, new_chain_id]])
+
             for collected_chain_id in self.retrieve_server_information(new_chain_id, link_name):
                 collected_server_info = self.get_server_info(collected_chain_id)
                 if len(collected_server_info['chain_tree']) > self.max_link_depth:
@@ -380,22 +376,15 @@ class Operations(query_builder.QueryBuilder):
 
     def retrieve_links_recursive(self) -> None:
         list(self.retrieve_server_information(None, None))
+
         while True:
             discovered_chains = False
             for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
                 chain_id = server_info['chain_id']
                 if chain_id in self.collected_chains:
                     continue
-                link_name = server_info['link_name']
-                if self.is_same_privileges(chain_id):
-                    previous_chain_str = self.generate_chain_str(chain_id)
-                    LOG.info(
-                        f"The privileges of {previous_chain_str} -> {colored(link_name, 'green')} already chained.")
-                    del self.state['servers_info'][chain_id]
-                    continue
-
-                self.retrieve_links(chain_id)
                 self.collected_chains.add(chain_id)
+                self.retrieve_links(chain_id)
                 discovered_chains = True
                 break
             if not discovered_chains:
@@ -470,10 +459,7 @@ class Operations(query_builder.QueryBuilder):
         if not self.reconfigure_procedure(chain_id, 'clr strict security', required_status=False):
             LOG.error("Failed to disable clr strict security")
             return False
-
-        self.add_custom_asm(chain_id, asm_name, asm_file_location)
-        LOG.info(f"Added custom assembly")
-        return True
+        return self.add_custom_asm(chain_id, asm_name, asm_file_location)
 
     def execute_custom_assembly(self, chain_id: str, operation_type: Literal['procedure', 'function'],
                                 asm_file_location: str, asm_name: str, operation_name: str, args: str,
