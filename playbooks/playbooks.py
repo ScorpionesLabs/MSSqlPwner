@@ -406,7 +406,8 @@ class Playbooks(Operations):
             mssql_client.options.windows_auth = True
         if mssql_client.connect(user, password, domain):
             LOG.setLevel(logging.INFO)
-            LOG.info(f"Successfully connecnted to {host} with user {user} and {auth_type} {cred}")
+            full_user = f"{domain}\\{user}" if domain else user
+            LOG.info(f"Successfully connected to {host} with user {full_user} and {auth_type} {cred}")
             return True
         LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
         return False
