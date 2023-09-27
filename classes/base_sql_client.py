@@ -12,8 +12,8 @@ import utilities
 from classes import query_builder
 from impacket import tds
 from impacket import LOG
+from typing import Union
 from impacket import version
-from typing import Union, Literal
 from impacket.tds import TDS_SQL_BATCH
 
 
@@ -156,10 +156,14 @@ class BaseSQLClient(object):
         return ret_val
 
     def build_query_chain(self, chain_tree: list, query: str,
-                          method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> list:
+                          method: str) -> list:
         """
         This function is responsible to build a query chain.
         """
+        method_list = ['OpenQuery', 'exec_at']
+        if method not in method_list:
+            raise Exception(f"Method {method} not supported. Supported methods: {method_list}")
+
         if not chain_tree:
             yield query
             return
@@ -170,7 +174,7 @@ class BaseSQLClient(object):
         yield from self.build_query_chain(chain_tree, new_query, method)
 
     def generate_query(self, chain_id: str, query: str,
-                       method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery") -> list:
+                       method: str = "OpenQuery") -> list:
         """
         This function is responsible to split a linked server path string in order to build chained queries through the
          linked servers using the OpenQuery or exec function.
@@ -179,6 +183,9 @@ class BaseSQLClient(object):
             OpenQuery(Server1, 'OpenQuery(Server2, ''OpenQuery(Server3, '''query''')'')')
             EXEC ('EXEC (''EXEC ('''query''') AT Server3'') AT Server2') AT Server1
         """
+        method_list = ['OpenQuery', 'exec_at']
+        if method not in method_list:
+            raise Exception(f"Method {method} not supported. Supported methods: {method_list}")
 
         if not chain_id:
             yield query
@@ -187,21 +194,22 @@ class BaseSQLClient(object):
         server_info = copy.deepcopy(self.state['servers_info'][chain_id])
         yield from self.build_query_chain(server_info['chain_tree'], query, method)
 
-    def build_chain(self, chain_id: str, query: str,
-                    method: Literal['OpenQuery', 'blind_OpenQuery', 'exec_at'] = "OpenQuery",
-                    decode_results: bool = True, print_results: bool = False,
-                    adsi_provider: str = None, wait: bool = True,
-                    indicates_success: list = None) -> Union[dict, utilities.CustomThread]:
+    def build_chain(self, chain_id: str, query: str, method: str = "OpenQuery",
+                    decode_results: bool = True, print_results: bool = False, adsi_provider: str = None,
+                    wait: bool = True, indicates_success: list = None,
+                    used_methods: set = None) -> Union[dict, utilities.CustomThread]:
         """
          This function is responsible to build the query chain for the given query and method.
         """
+        method_list = ['OpenQuery', 'exec_at']
+        if method not in method_list:
+            raise Exception(f"Method {method} not supported. Supported methods: {method_list}")
         ret_val = {}
+        if not used_methods:
+            used_methods = set()
         if not indicates_success:
             indicates_success = []
-        # indicates_success.append('Deferred prepare could not be completed')
         query_tpl = "[PAYLOAD]"
-        if method == "blind_OpenQuery":
-            query_tpl = f"SELECT 1; {query_tpl}"
         if adsi_provider:
             query_tpl = query_builder.link_query(adsi_provider, query_tpl, method)
         for query_tpl in self.generate_query(chain_id, query_tpl, method):
@@ -211,6 +219,13 @@ class BaseSQLClient(object):
             ret_val['template'] = query_tpl
             if ret_val['is_success']:
                 return ret_val
+        used_methods.add(method)
+        for new_method in method_list:
+            if new_method == method or new_method in used_methods:
+                continue
+            LOG.info(f"Trying {new_method} method")
+            return self.build_chain(chain_id, query, new_method, decode_results, print_results, adsi_provider, wait,
+                                    indicates_success, used_methods)
         return ret_val
 
     def configure_query_with_defaults(self, chain_id: str, query: str) -> str:

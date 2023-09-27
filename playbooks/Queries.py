@@ -5,8 +5,8 @@ SERVER_USER_LIST = "SELECT name as username FROM sys.server_principals WHERE typ
 DB_USER_LIST = "SELECT name as username FROM sys.database_principals WHERE type_desc LIKE '%_USER' AND authentication_type_desc != 'None' and name NOT LIKE '##MS%';"
 GET_USER_SERVER_ROLES = "SELECT p.name AS 'group' FROM sys.server_principals p JOIN sys.server_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
 GET_USER_DATABASE_ROLES = "SELECT p.name AS 'group' FROM sys.database_principals p JOIN sys.database_role_members m ON p.principal_id = m.role_principal_id WHERE m.member_principal_id = SUSER_ID();"
-IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}'; EXEC('[QUERY]'); REVERT"
-IMPERSONATE_AS_DATABASE_PRINCIPAL = "EXECUTE AS USER = '{username}'; EXEC('[QUERY]'); REVERT"
+IMPERSONATE_AS_SERVER_PRINCIPAL = "EXECUTE AS LOGIN = '{username}'; EXEC('[QUERY]');"
+IMPERSONATE_AS_DATABASE_PRINCIPAL = "EXECUTE AS USER = '{username}'; EXEC('[QUERY]');"
 DATABASE_LIST = "SELECT name FROM sys.databases WHERE database_id > 4"
 
 # Lateral movement queries

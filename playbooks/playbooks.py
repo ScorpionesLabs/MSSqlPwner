@@ -31,7 +31,7 @@ class Playbooks(Operations):
             self.call_rev2self()
         super().disconnect()
 
-    def enumerate(self) -> bool:
+    def enumerate(self, print_state: bool = True) -> bool:
         """
         This function is responsible to enumerate the server.
         """
@@ -41,15 +41,13 @@ class Playbooks(Operations):
                                                              ["y", "n"], 'y'):
                     self.state = json.load(open(self.state_filename))
                 else:
-                    for chain_id in self.retrieve_server_information(None, None):
-                        self.retrieve_links(chain_id)
+                    self.retrieve_links_recursive()
         else:
-            for chain_id in self.retrieve_server_information(None, None):
-                self.retrieve_links(chain_id)
-        self.delete_non_relevant_chains()
+            self.retrieve_links_recursive()
 
         utilities.store_state(self.state_filename, self.state)
-        utilities.print_state(self.state)
+        if print_state:
+            utilities.print_state(self.state)
         return True
 
     def execute_command_by_procedure(self, chain_id: str,
@@ -83,7 +81,7 @@ class Playbooks(Operations):
         e.g. OpenQuery, exec_at
         """
         if not query:
-            LOG.error("Query is required for direct_query module")
+            LOG.error("Query is required for direct-query module")
             return False
         return self.direct_query(chain_id, query, method)
 
@@ -105,7 +103,7 @@ class Playbooks(Operations):
             return False
 
         ldap_filename = "LdapServer-x64.dll" if arch == 'x64' else "LdapServer-x86.dll"
-        ldap_assembly = os.path.join(self.custom_asm_directory, ldap_filename)
+        ldap_assembly = os.path.join('playbooks', 'custom-asm', ldap_filename)
         if not server_info['adsi_providers']:
             return False
 
@@ -293,7 +291,7 @@ class Playbooks(Operations):
             return False
 
         asm_filename = "CmdExec-x64.dll" if arch_name == 'x64' else "CmdExec-x86.dll"
-        asm_file_location = os.path.join(self.custom_asm_directory, asm_filename)
+        asm_file_location = os.path.join('playbooks', 'custom-asm', asm_filename)
 
         custom_asm_results = self.execute_custom_assembly(chain_id, "procedure", asm_file_location, "CalcAsm",
                                                           procedure_name, "@command NVARCHAR (4000)", command)
@@ -325,7 +323,7 @@ class Playbooks(Operations):
             elif options.module == 'inject-custom-asm':
                 self.inject_custom_asm(chain_id, options.file_location, options.procedure_name)
 
-            elif options.module == 'direct_query':
+            elif options.module == 'direct-query':
                 ret_val = self.execute_direct_query(chain_id, options.method, options.query)
 
             elif options.module == 'retrieve-password':
@@ -355,7 +353,7 @@ class Playbooks(Operations):
         link_name = link_name if link_name else self.state['hostname']
         if options.module == "enumerate":
             # It returned without calling since it is already called in the main function.
-            return True
+            return self.enumerate()
 
         if chain_id:
             if not self.is_valid_chain_id(chain_id):

@@ -7,7 +7,6 @@ __email__ = ['El3ct71k@gmail.com']
 ########################################################
 
 import os
-import copy
 import utilities
 from impacket import LOG
 from termcolor import colored
@@ -23,40 +22,32 @@ from typing import Literal, Any, Union
 class Operations(query_builder.QueryBuilder):
     def __init__(self, server_address, user_name, args_options):
         super().__init__(server_address, args_options)
-        self.high_privileged_server_roles = ['sysadmin']
-        self.high_privileged_database_roles = ['db_owner']
 
         self.use_state = not args_options.no_state
         self.username = user_name
         self.server_address = server_address
         self.debug = args_options.debug
         self.state_filename = f"{server_address}_{user_name}.state"
-
-        self.rev2self = dict()
         self.max_link_depth = args_options.max_link_depth
         self.max_impersonation_depth = args_options.max_impersonation_depth
         self.auto_yes = args_options.auto_yes
-        self.custom_asm_directory = os.path.join('playbooks', 'custom-asm')
-        self.deletion_list = set()
+        self.rev2self = dict()
+        self.collected_chains = set()
+
+    def get_server_info(self, chain_id):
+        if chain_id not in self.state['servers_info'].keys():
+            raise Exception(f"Chain id {chain_id} is not in the server state.")
+        return self.state['servers_info'][chain_id]
 
     def clone_chain_id(self, chain_id: str) -> str:
         """
             This function is responsible to clone the chain id.
         """
-        new_chain_id = self.add_to_server_state(None, "cloned_from", chain_id)
-        cloned = copy.deepcopy(self.state['servers_info'][chain_id])
-        # TODO: Remove it and simplify the code
-        if cloned['chain_tree']:
-            cloned['chain_tree'][-1][1] = new_chain_id
-        self.add_to_server_state(new_chain_id, 'chain_tree', cloned['chain_tree'])
-        self.add_to_server_state(new_chain_id, 'walkthrough', cloned['walkthrough'])
-        self.add_to_server_state(new_chain_id, 'original_server_user', cloned['original_server_user'])
-        self.add_to_server_state(new_chain_id, 'original_db_user', cloned['original_db_user'])
-        self.add_to_server_state(new_chain_id, 'server_user', cloned['server_user'])
-        self.add_to_server_state(new_chain_id, 'db_user', cloned['db_user'])
-        self.add_to_server_state(new_chain_id, 'db_name', cloned['db_name'])
-        self.add_to_server_state(new_chain_id, 'chain_id', new_chain_id)
-        self.add_to_server_state(new_chain_id, "cloned_from", chain_id)
+        new_chain_id = utilities.generate_link_id()
+        cloned_chain = self.get_server_info(chain_id).copy()
+        cloned = utilities.recursive_replace(cloned_chain, chain_id, new_chain_id)
+        cloned['cloned_from'] = new_chain_id
+        self.state['servers_info'][new_chain_id] = cloned
         return new_chain_id
 
     def add_to_server_state(self, chain_id: Union[str, None], key: str, value: Any) -> str:
@@ -78,10 +69,9 @@ class Operations(query_builder.QueryBuilder):
             raise Exception(f"Key {key} is not in the server state.")
 
         server_info = self.state['servers_info'][chain_id][key]
+
         if isinstance(server_info, list) or isinstance(server_info, set):
-            if not isinstance(value, list):
-                value = [value]
-            for v in value:
+            for v in [value] if not isinstance(value, list) else value:
                 if isinstance(server_info, list):
                     self.state['servers_info'][chain_id][key].append(v)
                 else:
@@ -101,6 +91,8 @@ class Operations(query_builder.QueryBuilder):
         discovered_links = utilities.filter_subdict_by_key(self.state['servers_info'], "link_name", link_name)
         if not discovered_links:
             return []
+
+        # Select one in order to just discover the hostname
         link_information = discovered_links[0]
         servers = utilities.filter_subdict_by_key(self.state['servers_info'], "hostname", link_information['hostname'])
         for server in servers:
@@ -111,15 +103,17 @@ class Operations(query_builder.QueryBuilder):
     def generate_authentication_details(self, chain_id: str) -> str:
         """
             This function is responsible to generate authentication details.
+
+            If the server is impersonated, it will show the impersonation details and the original login.
         """
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
         original_server_user = server_info['original_server_user']
         server_user = original_server_user if original_server_user else server_info['server_user']
 
         original_db_user = server_info['original_db_user']
         db_user = original_db_user if original_db_user else server_info['db_user']
 
-        db_name = self.state['servers_info'][chain_id]['db_name']
+        db_name = server_info['db_name']
         for operation_type, operation_value in server_info['walkthrough']:
             if operation_type == 'server':
                 server_user += f">{colored('I:', 'red')}{operation_value}"
@@ -135,14 +129,17 @@ class Operations(query_builder.QueryBuilder):
         """
         server_info = self.state['servers_info'][chain_id]
         if not server_info['chain_tree']:
-            return server_info['hostname']
+            chain_str = server_info['hostname']
+            if print_authentication_details:
+                authentication_details = self.generate_authentication_details(chain_id)
+                chain_str += f" ({authentication_details})"
+            return chain_str
 
         chain_str = ""
         for link_name, new_chain_id in server_info['chain_tree']:
-            chain_str += f" -> {colored(link_name, 'green')}"
-            authentication_details = self.generate_authentication_details(new_chain_id)
             if print_authentication_details:
-                chain_str += f" ({authentication_details})"
+                authentication_details = self.generate_authentication_details(new_chain_id)
+                chain_str += f" -> {colored(link_name, 'green')} ({authentication_details})"
         return chain_str.lstrip(" -> ")
 
     def is_valid_chain_id(self, chain_id: str) -> bool:
@@ -173,8 +170,7 @@ class Operations(query_builder.QueryBuilder):
         """
             This function is responsible to check if the given chain id has the same privileges.
         """
-
-        current_server_info = self.state['servers_info'][chain_id]
+        current_server_info = self.get_server_info(chain_id)
         current_server_user = current_server_info['server_user']
         current_db_user = current_server_info['db_user']
 
@@ -193,18 +189,10 @@ class Operations(query_builder.QueryBuilder):
             LOG.info(f"Architecture is set to {arch}")
             return arch
 
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
         chain_str = self.generate_chain_str(chain_id)
         LOG.info(f"Find architecture in {chain_str}")
-        for x64_sig in ["<x64>", "(X64)", "(64-bit)"]:
-            if x64_sig in server_info['version']:
-                LOG.info("Architecture is x64")
-                return "x64"
-        for x86_sig in ["<x86>", "(X86)", "(32-bit)"]:
-            if x86_sig in server_info['version']:
-                LOG.info("Architecture is x86")
-                return "x86"
-        return None
+        return utilities.detect_architecture(server_info['version'])
 
     def is_privileged_user(self, chain_id: str, user_type: str) -> bool:
         """
@@ -212,7 +200,7 @@ class Operations(query_builder.QueryBuilder):
         """
         if user_type not in ['server', 'database']:
             raise ValueError("User type must be 'server' or 'database'")
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
         current_user = server_info['server_user'] if user_type == 'server' else server_info['db_user']
         high_privileged_roles = self.high_privileged_server_roles \
             if user_type == 'server' else self.high_privileged_database_roles
@@ -227,7 +215,7 @@ class Operations(query_builder.QueryBuilder):
         """
             This function is responsible to check if the impersonation depth is exceeded.
         """
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
         counter = 0
         for operation_type, operation_value in server_info['walkthrough']:
             if not operation_value:
@@ -240,8 +228,11 @@ class Operations(query_builder.QueryBuilder):
         """
             This function is responsible to retrieve the server information.
         """
+
+        server_information = self.get_server_information(chain_id)
+
         enumeration_results = {
-            "server_information": self.get_server_information(chain_id),
+            "server_information": server_information,
             "trustworthy_db_list": self.get_trustworthy_db_list(chain_id),
             "server_roles": self.get_user_roles(chain_id, user_type="server"),
             "database_roles": self.get_user_roles(chain_id, user_type="database"),
@@ -256,7 +247,7 @@ class Operations(query_builder.QueryBuilder):
         for key in enumeration_results:
             if not enumeration_results[key]['is_success']:
                 LOG.error(f"Failed to retrieve server information from {chain_str}")
-                self.deletion_list.add(chain_id)
+                del self.state['servers_info'][chain_id]
                 return
 
         db_user = enumeration_results['server_information']['results'][0]['db_user']
@@ -270,7 +261,7 @@ class Operations(query_builder.QueryBuilder):
             self.add_to_server_state(chain_id, "chain_tree", [[hostname, chain_id]])
             link_name = hostname
 
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
 
         for k, v in {"hostname": hostname, "link_name": link_name, "db_user": db_user, "server_user": server_user,
                      "version": enumeration_results['server_information']['results'][0]['version'],
@@ -281,6 +272,12 @@ class Operations(query_builder.QueryBuilder):
 
         chain_str = self.generate_chain_str(chain_id)
         self.add_to_server_state(chain_id, "chain_str", self.generate_chain_str(chain_id))
+
+        if self.is_same_privileges(chain_id):
+            previous_chain_str = self.generate_chain_str(chain_id)
+            LOG.info(f"The privileges of {previous_chain_str} -> {colored(link_name, 'green')} already chained.")
+            del self.state['servers_info'][chain_id]
+            return
 
         for key in ["trustworthy_db_list", "available_databases", "server_roles", "database_roles"]:
             for enumeration_dict in enumeration_results[key]['results']:
@@ -324,9 +321,6 @@ class Operations(query_builder.QueryBuilder):
             LOG.warning(f"Max impersonation depth reached for {chain_str}")
             return
 
-        self.add_to_server_state(chain_id, "original_server_user", server_user)
-        self.add_to_server_state(chain_id, "original_db_user", db_user)
-
         for key in ["server_principals", "database_principals"]:
             principal_type = "server" if key == "server_principals" else "database"
             for principal in server_info[key]:
@@ -340,24 +334,18 @@ class Operations(query_builder.QueryBuilder):
                     continue
 
                 clone_chain_id = self.clone_chain_id(chain_id)
+                self.add_to_server_state(clone_chain_id, "original_server_user", server_user)
+                self.add_to_server_state(clone_chain_id, "original_db_user", db_user)
                 self.add_to_server_state(clone_chain_id, 'walkthrough', walkthrough)
                 yield from self.retrieve_server_information(clone_chain_id, link_name)
-
-    def delete_non_relevant_chains(self) -> None:
-        """
-            This function is responsible to delete the non-relevant chains.
-        """
-        for chain_id in self.deletion_list:
-            del self.state['servers_info'][chain_id]
-        self.deletion_list.clear()
 
     def retrieve_links(self, chain_id: str) -> None:
         """
             This function is responsible to retrieve all the linkable servers recursively.
         """
-        server_info = self.state['servers_info'][chain_id]
+        server_info = self.get_server_info(chain_id)
         chain_str = self.generate_chain_str(chain_id)
-        if len(self.state['servers_info'][chain_id]['chain_tree']) > self.max_link_depth:
+        if len(server_info['chain_tree']) > self.max_link_depth:
             LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_link_depth})")
             return
 
@@ -387,14 +375,33 @@ class Operations(query_builder.QueryBuilder):
             new_chain_id = self.add_to_server_state(new_chain_id, "chain_tree",
                                                     server_info['chain_tree'] + [[link_name, new_chain_id]])
             for collected_chain_id in self.retrieve_server_information(new_chain_id, link_name):
-                if self.is_same_privileges(collected_chain_id):
-                    LOG.info(f"Same privileges on {chain_str} and {self.generate_chain_str(collected_chain_id)}")
-                    self.deletion_list.add(collected_chain_id)
-                    continue
                 if len(self.state['servers_info'][collected_chain_id]['chain_tree']) > self.max_link_depth:
                     LOG.info(f"Reached max depth for chain {chain_str} (Max depth: {self.max_link_depth})")
                     continue
-                self.retrieve_links(collected_chain_id)
+
+    def retrieve_links_recursive(self) -> None:
+        list(self.retrieve_server_information(None, None))
+        while True:
+            discovered_chains = False
+            for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
+                chain_id = server_info['chain_id']
+                if chain_id in self.collected_chains:
+                    continue
+                link_name = server_info['link_name']
+                if self.is_same_privileges(chain_id):
+                    previous_chain_str = self.generate_chain_str(chain_id)
+                    LOG.info(
+                        f"The privileges of {previous_chain_str} -> {colored(link_name, 'green')} already chained.")
+                    del self.state['servers_info'][chain_id]
+                    continue
+
+                self.retrieve_links(chain_id)
+                self.collected_chains.add(chain_id)
+                discovered_chains = True
+                break
+            if not discovered_chains:
+                break
+        LOG.info("Done!")
 
     def direct_query(self, chain_id: str, query: str, method: Literal['OpenQuery', 'exec_at'] = "OpenQuery",
                      decode_results: bool = True, print_results: bool = False) -> bool:
@@ -403,11 +410,11 @@ class Operations(query_builder.QueryBuilder):
         """
         results = self.build_chain(chain_id, query, method, decode_results, print_results)
         if not results['is_success']:
-            LOG.error(f"Failed to execute query: {query}")
+            LOG.error(f"Failed to execute query: {query} on {self.generate_chain_str(chain_id)}")
             return False
 
         if not results['results']:
-            LOG.info(f"No results found for query: {query}")
+            LOG.info(f"No results found for query: {query} on {self.generate_chain_str(chain_id)}")
             return True
 
         for result in results['results']:
@@ -423,13 +430,9 @@ class Operations(query_builder.QueryBuilder):
         if not self.is_procedure_accessible(chain_id, procedure):
             return False
 
-        if not self.reconfigure_procedure(chain_id, "show advanced options", required_status=True):
-            return False
+        self.reconfigure_procedure(chain_id, "show advanced options", required_status=True)
+        self.reconfigure_procedure(chain_id, procedure, required_status=True)
 
-        if not self.reconfigure_procedure(chain_id, procedure, required_status=True):
-            return False
-
-        print(procedure, command)
         procedure_results = self.execute_operation(chain_id, "procedure", procedure, command)
         chain_str = self.generate_chain_str(chain_id)
         if not procedure_results['is_success']:
@@ -484,7 +487,8 @@ class Operations(query_builder.QueryBuilder):
         if not self.add_new_custom_asm(chain_id, asm_file_location, asm_name):
             return {"is_success": False}
 
-        db_user = self.state['servers_info'][chain_id]['db_user']
+        server_info = self.get_server_info(chain_id)
+        db_user = server_info['db_user']
         if not self.create_operation(chain_id, operation_type, asm_name, operation_name, args, db_user, **kwargs):
             LOG.error(f"Failed to create custom {operation_name}")
             return {"is_success": False}

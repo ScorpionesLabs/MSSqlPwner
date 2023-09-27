@@ -49,7 +49,7 @@ def main():
     mssql_client = Playbooks(address, username, options)
     if not mssql_client.connect(username, password, domain):
         return
-    if not mssql_client.enumerate():
+    if not mssql_client.enumerate(print_state=False):
         return
 
     mssql_client.execute_module(options.chain_id, options.link_name, options)

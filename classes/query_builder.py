@@ -16,6 +16,8 @@ from classes.base_sql_client import BaseSQLClient
 class QueryBuilder(BaseSQLClient):
     def __init__(self, server_address, args_options):
         super().__init__(server_address, args_options)
+        self.high_privileged_server_roles = ['sysadmin']
+        self.high_privileged_database_roles = ['db_owner']
 
     def add_rev2self_query(self, chain_id: str, query: str, template: str) -> None:
         """
@@ -278,10 +280,14 @@ def _build_exec_at(linked_server: str, query: str) -> str:
     return utilities.format_strings(Queries.EXEC_AT, linked_server=linked_server, query=query)
 
 
-def link_query(link: str, query: str, method: Literal["exec_at", "OpenQuery", "blind_OpenQuery"]) -> str:
+def link_query(link: str, query: str, method: str) -> str:
     """
     This function is responsible to link a query to a linked server.
     """
+    method_list = ['OpenQuery', 'exec_at']
+    if method not in method_list:
+        raise Exception(f"Method {method} not supported. Supported methods: {method_list}")
+
     method_func = _build_exec_at if method == "exec_at" else _build_openquery
     return method_func(link, query)
 
