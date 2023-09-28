@@ -382,11 +382,15 @@ class Playbooks(Operations):
         self.options.port = port
         mssql_client = Playbooks(host, port, self.options)
         if auth_type == 'ticket':
+            if not os.path.exists(cred):
+                LOG.error(f"{cred} does not exist")
+                return False
+
             if utilities.is_valid_ip(host):
                 LOG.warning(f"Skipping the {host} host since tickets are not supported for IP addresses")
                 return False
 
-            os.environ['KRB5CCNAME'] = cred.strip()
+            os.environ['KRB5CCNAME'] = cred
             mssql_client.options.k = True
             mssql_client.options.no_pass = True
             mssql_client.options.hashes = None
