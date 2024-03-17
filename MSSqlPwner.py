@@ -10,7 +10,7 @@ __email__ = ['El3ct71k@gmail.com']
 import sys
 import readline
 import utilities
-from impacket import LOG
+from impacket import LOG, version
 from getpass import getpass
 from impacket.examples import logger
 from playbooks.playbooks import Playbooks
@@ -20,6 +20,8 @@ from impacket.examples.utils import parse_target
 def main():
     # Init the example's logger theme
     logger.init()
+
+    print(version.BANNER)
     parser, _ = utilities.generate_arg_parser()
 
     if len(sys.argv) == 1:
