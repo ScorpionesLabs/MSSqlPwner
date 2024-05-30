@@ -11,6 +11,7 @@ from impacket.examples import logger
 import mssqlpwner.utilities as utilities
 from mssqlpwner.playbooks.playbooks import Playbooks
 
+
 def console():
     # Init the example's logger theme
     logger.init()
@@ -24,7 +25,9 @@ def console():
 
     if options.module == "brute":
         mssql_client = Playbooks("", "", options)
-        mssql_client.bruteforce(options.target, options.ul, options.pl, options.hl, options.tl)
+        mssql_client.bruteforce(
+            options.target, options.ul, options.pl, options.hl, options.tl
+        )
         return
 
     if not options.target:
@@ -38,10 +41,15 @@ def console():
     domain, username, password, address = parse_target(options.target)
 
     if domain is None:
-        domain = ''
+        domain = ""
 
-    if password == '' and username != '' and options.hashes is None \
-            and options.no_pass is False and options.aesKey is None:
+    if (
+        password == ""
+        and username != ""
+        and options.hashes is None
+        and options.no_pass is False
+        and options.aesKey is None
+    ):
         password = getpass("Password:")
 
     if options.aesKey is not None:
@@ -56,4 +64,3 @@ def console():
 
     mssql_client.execute_module(options.chain_id, options.link_name, options)
     mssql_client.disconnect()
-
