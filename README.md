@@ -1,7 +1,7 @@
 # MSSqlPwner
 
 <p align="center">
- <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/assets/logo.PNG?raw=true">
+ <img src="./assets/logo.PNG?raw=true">
 </p>
 
 MSSqlPwner is an advanced and versatile pentesting tool designed to seamlessly interact and pwn MSSQL servers.
@@ -38,12 +38,12 @@ mssqlpwner -hashes ':0CB6948805F797BF2A82807973B89537' 'Administrator'@172.16.2.
 
 ### Command execution
 <p align="center">
- <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/assets/poc.png?raw=true">
+ <img src="./assets/poc.png?raw=true">
 </p>
 
 ### Bruteforce
 <p align="center">
- <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/assets/brute.png?raw=true">
+ <img src="./assets/brute.png?raw=true">
 </p>
 
 This tool is supported by multiple authentication methods and described below.
