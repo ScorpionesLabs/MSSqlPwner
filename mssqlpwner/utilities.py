@@ -1,11 +1,4 @@
-########################################################
-__author__ = ['Nimrod Levy']
-__license__ = 'GPL v3'
-__version__ = 'v1.3.2'
-__email__ = ['El3ct71k@gmail.com']
-
-########################################################
-
+# Built-in imports
 import os
 import re
 import json
@@ -16,9 +9,12 @@ import argparse
 import binascii
 import hashlib
 from uuid import uuid4
-from impacket import LOG
 from threading import Thread
 from typing import Any, Union
+
+# Third party library imports
+from impacket import LOG
+
 
 
 class CustomThread(Thread):

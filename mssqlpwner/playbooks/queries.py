@@ -1,5 +1,9 @@
-import utilities
+
+# Built-in imports
 from typing import Literal
+
+# Local library imports
+import mssqlpwner.utilities as utilities
 
 
 def get_server_information() -> str:

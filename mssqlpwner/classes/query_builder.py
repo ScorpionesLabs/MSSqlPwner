@@ -1,16 +1,14 @@
-########################################################
-__author__ = ['Nimrod Levy']
-__license__ = 'GPL v3'
-__version__ = 'v1.3.2'
-__email__ = ['El3ct71k@gmail.com']
-########################################################
-
-import utilities
+# Built-in imports
 from abc import ABC
-from impacket import LOG
-from playbooks import Queries
 from typing import Literal, Union
-from classes.base_sql_client import BaseSQLClient
+
+# Third party library imports
+from impacket import LOG
+
+# Local library imports
+from mssqlpwner.playbooks import queries
+from mssqlpwner.classes.base_sql_client import BaseSQLClient
+import mssqlpwner.utilities as utilities
 
 
 class QueryBuilder(BaseSQLClient, ABC):
@@ -36,7 +34,7 @@ class QueryBuilder(BaseSQLClient, ABC):
             indicates_success = []
         query_tpl = "[PAYLOAD]"
         if adsi_provider:
-            query_tpl = Queries.link_query(adsi_provider, query_tpl, method)
+            query_tpl = queries.link_query(adsi_provider, query_tpl, method)
         for query_tpl in self.generate_query(chain_id, query_tpl, method):
             chained_query = utilities.replace_strings(query_tpl, {"[PAYLOAD]": query})
             ret_val = self.custom_sql_query(chained_query, print_results=print_results, decode_results=decode_results,
@@ -61,32 +59,32 @@ class QueryBuilder(BaseSQLClient, ABC):
         raise NotImplementedError
 
     def get_server_information(self, chain_id: str) -> dict:
-        return self.build_chain(chain_id, Queries.get_server_information())
+        return self.build_chain(chain_id, queries.get_server_information())
 
     def get_trustworthy_db_list(self, chain_id: str) -> dict:
-        return self.build_chain(chain_id, Queries.get_trustworthy_db_list())
+        return self.build_chain(chain_id, queries.get_trustworthy_db_list())
 
     def get_impersonation_list(self, chain_id: str, user_type: Literal['server', 'database']) -> dict:
-        return self.build_chain(chain_id, Queries.get_impersonation_list(user_type))
+        return self.build_chain(chain_id, queries.get_impersonation_list(user_type))
 
     def get_user_roles(self, chain_id: str, user_type: Literal['server', 'database']) -> dict:
-        return self.build_chain(chain_id, Queries.get_user_roles(user_type))
+        return self.build_chain(chain_id, queries.get_user_roles(user_type))
 
     def get_database_list(self, chain_id: str) -> dict:
-        return self.build_chain(chain_id, Queries.get_database_list())
+        return self.build_chain(chain_id, queries.get_database_list())
 
     def get_user_list(self, chain_id: str, user_type: str) -> dict:
-        return self.build_chain(chain_id, Queries.get_user_list(user_type))
+        return self.build_chain(chain_id, queries.get_user_list(user_type))
 
     def retrieve_linked_server_list(self, chain_id: str) -> dict:
-        return self.build_chain(chain_id, Queries.retrieve_linked_server_list())
+        return self.build_chain(chain_id, queries.retrieve_linked_server_list())
 
     def is_operation_exists(self, chain_id: str, operation_type: Literal['procedure', 'function'],
                             operation_name: str) -> bool:
         if operation_type == 'procedure':
-            is_exists_query = Queries.is_procedure_exists(operation_name)
+            is_exists_query = queries.is_procedure_exists(operation_name)
         else:
-            is_exists_query = Queries.is_function_exists(operation_name)
+            is_exists_query = queries.is_function_exists(operation_name)
 
         is_exists = self.build_chain(chain_id, is_exists_query)
         if not is_exists['is_success']:
@@ -102,9 +100,9 @@ class QueryBuilder(BaseSQLClient, ABC):
             return True
 
         if operation_type == 'procedure':
-            add_operation_query = Queries.create_procedure(asm_name, operation_name, args)
+            add_operation_query = queries.create_procedure(asm_name, operation_name, args)
         else:
-            add_operation_query = Queries.create_function(db_user, operation_name, asm_name, kwargs['namespace'],
+            add_operation_query = queries.create_function(db_user, operation_name, asm_name, kwargs['namespace'],
                                                           kwargs['class_name'], args)
 
         add_operation = self.build_chain(chain_id, add_operation_query, method="exec_at",
@@ -113,10 +111,10 @@ class QueryBuilder(BaseSQLClient, ABC):
             return False
 
         if operation_type == 'procedure':
-            self.add_rev2self_query(chain_id, Queries.drop_procedure(operation_name),
+            self.add_rev2self_query(chain_id, queries.drop_procedure(operation_name),
                                     template=add_operation['template'])
         else:
-            self.add_rev2self_query(chain_id, Queries.drop_function(operation_name),
+            self.add_rev2self_query(chain_id, queries.drop_function(operation_name),
                                     template=add_operation['template'])
         return True
 
@@ -125,22 +123,22 @@ class QueryBuilder(BaseSQLClient, ABC):
         if operation_type not in ['procedure', 'function']:
             raise ValueError("Operation type must be 'procedure' or 'function'")
         if operation_type == 'procedure':
-            execute_procedure = Queries.execute_procedure(operation_name, command)
+            execute_procedure = queries.execute_procedure(operation_name, command)
             return self.build_chain(chain_id, execute_procedure, method="exec_at", wait=wait)
         else:
-            execute_function = Queries.execute_function(operation_name, command, db_user)
+            execute_function = queries.execute_function(operation_name, command, db_user)
             return self.build_chain(chain_id, execute_function, method="OpenQuery", wait=wait)
 
     def set_server_options(self, chain_id: str, link_name: str, feature: str, status: Literal['true', 'false']) -> bool:
         """
             This function is responsible to set the server options.
         """
-        set_server_option = self.build_chain(chain_id, Queries.set_server_options(link_name, feature, status),
+        set_server_option = self.build_chain(chain_id, queries.set_server_options(link_name, feature, status),
                                              method="exec_at")
         if set_server_option['is_success']:
             LOG.info(f"{feature} is set to {status} on {link_name}")
             rev2sef_status = 'true' if status == 'false' else 'false'
-            self.add_rev2self_query(chain_id, Queries.set_server_options(link_name, feature, rev2sef_status),
+            self.add_rev2self_query(chain_id, queries.set_server_options(link_name, feature, rev2sef_status),
                                     template=set_server_option['template'])
         return set_server_option['is_success']
 
@@ -151,14 +149,14 @@ class QueryBuilder(BaseSQLClient, ABC):
         if not self.is_operation_exists(chain_id, 'procedure', procedure_name):
             LOG.error(f"Procedure {procedure_name} not found")
             return True
-        is_procedure_accessible = self.build_chain(chain_id, Queries.is_procedure_accessible(procedure_name))
+        is_procedure_accessible = self.build_chain(chain_id, queries.is_procedure_accessible(procedure_name))
 
         if not is_procedure_accessible['is_success']:
             return False
         return True if is_procedure_accessible['results'][0]['is_accessible'] == 'True' else False
 
     def get_procedure_status(self, chain_id: str, procedure_name: str) -> bool:
-        is_enabled = self.build_chain(chain_id, Queries.is_procedure_enabled(procedure_name))
+        is_enabled = self.build_chain(chain_id, queries.is_procedure_enabled(procedure_name))
 
         if not is_enabled['is_success']:
             LOG.error(f"Cant fetch is_{procedure_name}_enabled status")
@@ -181,25 +179,25 @@ class QueryBuilder(BaseSQLClient, ABC):
         status = 1 if required_status else 0
         rev2self_status = 0 if required_status else 1
         LOG.info(f"Reconfiguring {procedure}")
-        reconfigure_procedure = self.build_chain(chain_id, Queries.reconfigure_procedure(procedure, status),
+        reconfigure_procedure = self.build_chain(chain_id, queries.reconfigure_procedure(procedure, status),
                                                  method="exec_at")
         if not reconfigure_procedure['is_success']:
             LOG.warning(f"Failed to enable {procedure}")
             return False
 
-        self.add_rev2self_query(chain_id, Queries.reconfigure_procedure(procedure, rev2self_status),
+        self.add_rev2self_query(chain_id, queries.reconfigure_procedure(procedure, rev2self_status),
                                 template=reconfigure_procedure['template'])
         return True
 
     def is_assembly_exists(self, chain_id: str, asm_name: str) -> bool:
-        is_asm_exists = self.build_chain(chain_id, Queries.is_assembly_exists(asm_name))
+        is_asm_exists = self.build_chain(chain_id, queries.is_assembly_exists(asm_name))
         if not is_asm_exists['is_success']:
             LOG.error(f"Failed to check if {asm_name} exists")
             return False
         return True if is_asm_exists['results'][0]['status'] == 'True' else False
 
     def is_custom_assembly_trusted(self, chain_id: str, asm_file_location: str) -> bool:
-        is_asm_trusted = self.build_chain(chain_id, Queries.is_custom_asm_trusted(asm_file_location))
+        is_asm_trusted = self.build_chain(chain_id, queries.is_custom_asm_trusted(asm_file_location))
         if not is_asm_trusted['is_success']:
             LOG.error(f"Failed to check if {asm_file_location} is trusted")
             return False
@@ -210,13 +208,13 @@ class QueryBuilder(BaseSQLClient, ABC):
             LOG.info(f"{asm_file_location} is already trusted")
             return True
 
-        trust_asm = self.build_chain(chain_id, Queries.trust_custom_asm(asm_file_location), method="exec_at")
+        trust_asm = self.build_chain(chain_id, queries.trust_custom_asm(asm_file_location), method="exec_at")
         if not trust_asm['is_success']:
             LOG.error(f"Failed to trust {asm_file_location} custom assembly")
             return False
 
         LOG.info(f"Trusting {asm_file_location} custom assembly")
-        self.add_rev2self_query(chain_id, Queries.untrust_custom_asm(asm_file_location), template=trust_asm['template'])
+        self.add_rev2self_query(chain_id, queries.untrust_custom_asm(asm_file_location), template=trust_asm['template'])
         return True
 
     def add_custom_asm(self, chain_id: str, asm_name: str, asm_file_location: str) -> bool:
@@ -225,13 +223,13 @@ class QueryBuilder(BaseSQLClient, ABC):
             LOG.error(f"Failed to trust {asm_file_location} custom assembly")
             return False
 
-        add_custom_asm = self.build_chain(chain_id, Queries.add_custom_assembly(asm_name, asm_file_location),
+        add_custom_asm = self.build_chain(chain_id, queries.add_custom_assembly(asm_name, asm_file_location),
                                           method="exec_at", indicates_success=['already exists in database',
                                                                                'is already registered'])
         if not add_custom_asm['is_success']:
             LOG.error(f"Failed to add custom assembly")
             return False
-        self.add_rev2self_query(chain_id, Queries.drop_custom_asm(asm_name), template=add_custom_asm['template'])
+        self.add_rev2self_query(chain_id, queries.drop_custom_asm(asm_name), template=add_custom_asm['template'])
         LOG.info(f"Added {asm_name} custom assembly")
         return True
 
@@ -243,6 +241,6 @@ class QueryBuilder(BaseSQLClient, ABC):
 
         for operation_type, operation_value in server_info['walkthrough'][::-1]:
             if operation_type in ['server', 'database']:
-                query = Queries.impersonate_as(operation_type, operation_value, query)
+                query = queries.impersonate_as(operation_type, operation_value, query)
         return query
 

@@ -1,20 +1,17 @@
-########################################################
-__author__ = ['Nimrod Levy']
-__license__ = 'GPL v3'
-__version__ = 'v1.3.2'
-__email__ = ['El3ct71k@gmail.com']
-
-########################################################
-
+# Built-in imports
 import copy
 import logging
-import utilities
+from typing import Union, List, Generator, Tuple
+
+# Third party library imports
 from impacket import tds
 from impacket import LOG
-from typing import Union
 from impacket import version
-from playbooks import Queries
 from impacket.tds import TDS_SQL_BATCH
+
+# Local library imports
+from mssqlpwner.playbooks import queries
+import mssqlpwner.utilities as utilities
 
 
 class BaseSQLClient(object):
@@ -156,23 +153,38 @@ class BaseSQLClient(object):
 
         return ret_val
 
-    def build_query_chain(self, chain_tree: list, query: str,
-                          method: str) -> list:
+    def build_query_chain(self, chain_tree: List[Tuple[str, int]], query: str,
+                          method: str) -> Generator[str, None, None]:
         """
-        This function is responsible to build a query chain.
+        Build a query chain based on a chain tree and a specified method.
+
+        Parameters:
+        chain_tree (List[Tuple[str, int]]): A list of tuples where each tuple contains a link name and a chain ID.
+        query (str): The initial query string.
+        method (str): The method to be used ('OpenQuery' or 'exec_at').
+
+        Yields:
+        Generator[str, None, None]: A generator yielding the chained query strings.
+
+        Raises:
+        Exception: If the provided method is not supported.
         """
-        method_list = ['OpenQuery', 'exec_at']
-        if method not in method_list:
-            raise Exception(f"Method {method} not supported. Supported methods: {method_list}")
+        supported_methods = ['OpenQuery', 'exec_at']
+        if method not in supported_methods:
+            raise Exception(f"Method '{method}' not supported. Supported methods: {supported_methods}")
 
-        if not chain_tree:
-            yield query
-            return
+        def recursive_chain(chain_tree: List[Tuple[str, int]], query: str) -> Generator[str, None, None]:
+            if not chain_tree:
+                yield query
+                return
 
-        link_name, chain_id = chain_tree.pop()
-        query = self.configure_query_with_defaults(chain_id, query)
-        new_query = Queries.link_query(link_name, query, method) if len(chain_tree) > 0 else query
-        yield from self.build_query_chain(chain_tree, new_query, method)
+            link_name, chain_id = chain_tree.pop()
+            query = self.configure_query_with_defaults(chain_id, query)
+            if chain_tree:
+                query = queries.link_query(link_name, query, method)
+            yield from recursive_chain(chain_tree, query)
+
+        yield from recursive_chain(chain_tree.copy(), query)
 
     def generate_query(self, chain_id: str, query: str,
                        method: str = "OpenQuery") -> list:

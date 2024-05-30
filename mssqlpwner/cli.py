@@ -1,23 +1,17 @@
-#!/usr/bin/env python3
-########################################################
-__author__ = ['Nimrod Levy']
-__license__ = 'GPL v3'
-__version__ = 'v1.3.2'
-__email__ = ['El3ct71k@gmail.com']
-
-########################################################
-
+# Built-in imports
 import sys
-import readline
-import utilities
-from impacket import LOG
 from getpass import getpass
-from impacket.examples import logger
-from playbooks.playbooks import Playbooks
+
+# Third party library imports
 from impacket.examples.utils import parse_target
+from impacket import LOG
+from impacket.examples import logger
 
+# Local library imports
+import mssqlpwner.utilities as utilities
+from mssqlpwner.playbooks.playbooks import Playbooks
 
-def main():
+def console():
     # Init the example's logger theme
     logger.init()
     parser, _ = utilities.generate_arg_parser()
@@ -63,6 +57,3 @@ def main():
     mssql_client.execute_module(options.chain_id, options.link_name, options)
     mssql_client.disconnect()
 
-
-if __name__ == '__main__':
-    main()

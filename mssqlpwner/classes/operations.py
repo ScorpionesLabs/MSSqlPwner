@@ -1,18 +1,15 @@
-########################################################
-__author__ = ['Nimrod Levy']
-__license__ = 'GPL v3'
-__version__ = 'v1.3.2'
-__email__ = ['El3ct71k@gmail.com']
-
-########################################################
-
+# Built-in imports
 import os
 import copy
-import utilities
+from typing import Literal, Any, Union
+
+# Third party library imports
 from impacket import LOG
 from termcolor import colored
-from classes import query_builder
-from typing import Literal, Any, Union
+
+# Local library imports
+from mssqlpwner.classes import query_builder
+import mssqlpwner.utilities as utilities
 
 
 # TODO: Move all the queries to the Queries file
@@ -134,7 +131,7 @@ class Operations(query_builder.QueryBuilder):
 
     def generate_chain_str(self, chain_id: str, print_authentication_details: bool = True) -> str:
         """
-            This function is responsible to generates chain string by chain id.
+        Generates a chain string by chain ID.
         """
         server_info = self.get_server_info(chain_id)
         if not server_info['chain_tree']:
@@ -148,8 +145,9 @@ class Operations(query_builder.QueryBuilder):
         for link_name, new_chain_id in server_info['chain_tree']:
             if print_authentication_details:
                 authentication_details = self.generate_authentication_details(new_chain_id)
-                chain_str += f" -> {colored(link_name, 'green')} ({authentication_details})"
+                chain_str += f" -> \033[32m{link_name}\033[0m ({authentication_details})"  # ANSI codes for green
         return chain_str.lstrip(" -> ")
+
 
     def is_valid_chain_id(self, chain_id: str) -> bool:
         """

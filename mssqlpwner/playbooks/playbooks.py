@@ -1,26 +1,43 @@
-########################################################
-__author__ = ['Nimrod Levy']
-__license__ = 'GPL v3'
-__version__ = 'v1.3.2'
-__email__ = ['El3ct71k@gmail.com']
 
-########################################################
-
+# Built-in imports
 import os
 import sys
 import json
 import logging
-import utilities
-from impacket import LOG
 from typing import Literal
-from playbooks import Queries
-from classes.operations import Operations
+
+# Third party library imports
+from impacket import LOG
 from impacket.examples.utils import parse_target
 
+from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion, AutoSuggestFromHistory
+from prompt_toolkit.history import ThreadedHistory, InMemoryHistory
+from prompt_toolkit.cursor_shapes import CursorShape
+from prompt_toolkit.formatted_text import ANSI
+
+# Local library imports
+import mssqlpwner.utilities as utilities
+from mssqlpwner.playbooks import queries
+from mssqlpwner.classes.operations import Operations
+
+class CompositeAutoSuggest(AutoSuggest):
+    def __init__(self, available_modules):
+        self.available_modules = available_modules
+
+    def get_suggestion(self, buffer, document):
+        text = document.text_before_cursor
+        suggestions = [module for module in self.available_modules if module.startswith(text)]
+        if suggestions:
+            return Suggestion(suggestions[0][len(text):])
+
+        # Fall back to history auto-suggest if no module suggestion is found
+        return AutoSuggestFromHistory().get_suggestion(buffer, document)
 
 class Playbooks(Operations):
     def __init__(self, server_address, user_name, args_options):
         super().__init__(server_address, user_name, args_options)
+
 
     def disconnect(self, rev2self: bool = True) -> None:
         """
@@ -131,7 +148,7 @@ class Playbooks(Operations):
                 client.state = self.state
                 LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
                 client.options.debug = self.options.debug
-                client.build_chain(chain_id, Queries.ldap_query("localhost", port),
+                client.build_chain(chain_id, queries.ldap_query("localhost", port),
                                    method="OpenQuery", adsi_provider=discovered_provider)
 
                 client.disconnect(rev2self=False)
@@ -230,32 +247,52 @@ class Playbooks(Operations):
         return True
 
     def interactive_mode(self, options) -> bool:
+
         chosen_chain_id = options.chain_id
         chosen_link_name = options.link_name if options.link_name else self.state['hostname']
         parser, available_modules = utilities.generate_arg_parser()
         available_modules.remove("interactive")
         available_modules += ["help", "exit"]
+
+        # Initialize PromptSession with composite auto-suggest
+        composite_auto_suggest = CompositeAutoSuggest(available_modules)
+
+        session = PromptSession(
+            cursor=CursorShape.BLINKING_BEAM,
+            multiline=False,
+            enable_history_search=True,
+            wrap_lines=True,
+            auto_suggest=composite_auto_suggest,
+            history=ThreadedHistory(InMemoryHistory()),
+            complete_while_typing=True,
+        )
+
+        keyboard_interruption = 0
+
         while True:
             try:
                 chain_id = list(self.get_execution_list(chosen_chain_id, chosen_link_name))[0]
                 title = self.generate_chain_str(chain_id)
 
-                args_list = input(f"MSSqlPwner#{title}> ").strip()
+                args_list = session.prompt(ANSI(f"MSSqlPwner#{title}> ")).strip()
                 selected_module = args_list.split(' ')[0]
+
                 if selected_module not in available_modules:
                     LOG.error(f'Unknown module {selected_module}.')
                     LOG.info(f"Available modules:")
                     for available_module in available_modules:
                         LOG.info(f"\t - {available_module}")
                     continue
-                elif args_list == "exit":
+                elif selected_module == "exit":
                     break
-                elif args_list == "help":
+                elif selected_module == "help":
                     parser.print_help()
                     continue
+
                 arguments = utilities.split_args(f'{" ".join(sys.argv[1:]).strip()} {args_list}')
                 arguments.remove("interactive")
                 args = parser.parse_args(arguments)
+
                 if args.module == "enumerate":
                     self.enumerate()
                     continue
@@ -263,7 +300,6 @@ class Playbooks(Operations):
                     if self.is_valid_chain_id(args.chain):
                         chosen_chain_id = args.chain
                     continue
-
                 elif args.module == "set-link-server":
                     if self.is_valid_link_server(args.link):
                         chosen_link_name = args.link
@@ -274,7 +310,17 @@ class Playbooks(Operations):
                     break
 
             except KeyboardInterrupt:
-                break
+                if keyboard_interruption == 2:
+                    print(f"[!] Exiting")
+                    break
+
+                keyboard_interruption += 1
+                print(
+                    f"[i] Keyboard interruption received. Not exiting.",
+                    flush=True,
+                )
+                continue
+
         return True
 
     def custom_asm(self, chain_id: str, arch: Literal['autodetect', 'x86', 'x64'], procedure_name: str,
