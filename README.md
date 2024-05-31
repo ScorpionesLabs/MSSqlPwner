@@ -19,7 +19,7 @@ For example, if your user cant execute commands in the current context, the tool
 
 
 ## Installation
-Getting started with toboggan is as smooth. You can do this by pulling directly from the repository:
+Getting started with mssqlpwner is as smooth. You can do this by pulling directly from the repository:
 ```shell
 pip install 'mssqlpwner@git+https://github.com/ScorpionesLabs/MSSqlPwner.git'
 ``` 
