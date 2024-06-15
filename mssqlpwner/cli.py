@@ -9,7 +9,7 @@ from impacket.examples import logger
 
 # Local library imports
 import mssqlpwner.utilities as utilities
-from mssqlpwner.playbooks.playbooks import Playbooks
+from mssqlpwner.playbooks.playbooks import Playbooks, BruteForcer
 
 
 def console():
@@ -30,9 +30,12 @@ def console():
         return
 
     if options.module == "brute":
-        mssql_client = Playbooks("", "", options)
-        mssql_client.bruteforce(
-            options.target, options.ul, options.pl, options.hl, options.tl
+        BruteForcer(options).bruteforce(
+            hosts_list=options.target,
+            user_list=options.ul,
+            password_list=options.pl,
+            hash_list=options.hl,
+            ticket_list=options.tl,
         )
         return
 
@@ -62,10 +65,13 @@ def console():
     if options.aesKey is not None:
         options.k = True
 
-    mssql_client = Playbooks(address, username, options)
+    mssql_client = Playbooks(
+        server_address=address, user_name=username, args_options=options
+    )
 
     if not mssql_client.connect(username, password, domain):
         return
+
     if not mssql_client.enumerate(print_state=False):
         return
 

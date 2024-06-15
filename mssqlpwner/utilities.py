@@ -37,7 +37,7 @@ class CustomThread(Thread):
         return self._return
 
 
-def decode_results(list_of_results: list) -> [dict, list]:
+def decode_results(list_of_results: list) -> Union[dict, list]:
     """
     This function is responsible to decode object content.
     """
@@ -46,6 +46,7 @@ def decode_results(list_of_results: list) -> [dict, list]:
         for row in list_of_results:
             container.append(decode_results(row))
         return container
+
     if list_of_results and isinstance(list_of_results, dict):
         for key, value in list_of_results.items():
             if hasattr(type(key), "decode"):

