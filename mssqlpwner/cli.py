@@ -21,7 +21,13 @@ def console():
         parser.print_help()
         return
 
+    # Parse arguments
     options = parser.parse_args()
+
+    # Check if help was requested
+    if "-h" in sys.argv or "--help" in sys.argv:
+        parser.print_help()
+        return
 
     if options.module == "brute":
         mssql_client = Playbooks("", "", options)
@@ -30,8 +36,9 @@ def console():
         )
         return
 
-    if not options.target:
-        LOG.error("target must be supplied!")
+    # Check for required positional argument 'target'
+    if not hasattr(options, "target") or not options.target:
+        LOG.error("Target must be supplied!")
         return
 
     if not options.module:
