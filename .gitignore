@@ -1,5 +1,5 @@
 ## Project based
-
+*.state
 tests/
 
 ## Python3 common things
