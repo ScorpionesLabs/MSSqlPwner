@@ -38,7 +38,7 @@ mssqlpwner -hashes ':0CB6948805F797BF2A82807973B89537' 'Administrator'@172.16.2.
 
 ### Command execution
 <p align="center">
- <img src="./assets/poc.png?raw=true">
+ <img src="./assets/interractive.png?raw=true">
 </p>
 
 ### Bruteforce
