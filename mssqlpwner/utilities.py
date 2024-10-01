@@ -214,7 +214,7 @@ def print_state(state: dict) -> None:
     This function is responsible to print the last enumeration from the stored state.
     """
     LOG.info("Linkable servers:")
-    translation = json.load(open(os.path.join("./", "playbooks", "translation.json")))
+    translation = json.load(open(os.path.join(os.path.dirname(__file__), "playbooks", "translation.json")))
     for _, server_info in state["servers_info"].items():
         for translation_key, translation_value in translation.items():
             if translation_key in server_info.keys():
