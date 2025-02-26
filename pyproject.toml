@@ -1,24 +1,28 @@
-[tool.poetry]
+[project]
 name = "mssqlpwner"
 version = "1.3.2"
-description = "seamlessly interact and pwn MSSQL servers"
-authors = ["Nimrod Levy <El3ct71k@gmail.com>"]
-license = "MIT"
+description = "Seamlessly interact and pwn MSSQL servers"
 readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Nimrod Levy", email = "El3ct71k@gmail.com" }
+]
+dependencies = [
+    "impacket>=0.11.0",
+    "termcolor>=2.4.0",
+    "prompt-toolkit>=3.0.45"
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-impacket = "^0.11.0"
-termcolor = "^2.4.0"
-prompt-toolkit = "^3.0.45"
+[project.scripts]
+mssqlpwner = "mssqlpwner.console:run"
 
-[tool.poetry.group.dev.dependencies]
-black = "^24.4.2"
-pylint = "^3.2.2"
+[project.optional-dependencies]
+dev = [
+    "black>=24.4.2",
+    "pylint>=3.2.2"
+]
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.7.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
-mssqlpwner = "mssqlpwner.cli:console"
