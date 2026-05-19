@@ -312,6 +312,15 @@ class Operations(query_builder.QueryBuilder):
                 del self.state["servers_info"][chain_id]
                 return
 
+        if not enumeration_results["server_information"]["results"]:
+            reply = enumeration_results["server_information"].get("replay", "")
+            LOG.error(
+                f"Failed to retrieve server information from {chain_str}: "
+                f"query returned no rows ({reply or 'linked server may be inaccessible'})"
+            )
+            del self.state["servers_info"][chain_id]
+            return
+
         db_user = enumeration_results["server_information"]["results"][0]["db_user"]
         server_user = enumeration_results["server_information"]["results"][0][
             "server_user"
