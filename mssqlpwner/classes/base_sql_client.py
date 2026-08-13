@@ -17,7 +17,7 @@ import mssqlpwner.utilities as utilities
 class BaseSQLClient(object):
     def __init__(self, address: str, options) -> None:
         self.port = options.port
-        self.ms_sql = tds.MSSQL(address, int(self.port))
+        self.ms_sql = tds.MSSQL(address, int(self.port), remoteName=address)
         self.debug = options.debug
         self.options = options
         self.domain = None
