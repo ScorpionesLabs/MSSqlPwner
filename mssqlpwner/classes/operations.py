@@ -455,7 +455,7 @@ class Operations(query_builder.QueryBuilder):
 
         for row in linkable_servers_results["results"]:
 
-            link_name = utilities.remove_instance_name(row["name"])
+            link_name = row["name"].strip()
             if row["provider"].lower() == "adsdsoobject":
                 self.add_to_server_state(chain_id, "adsi_providers", link_name)
                 continue
