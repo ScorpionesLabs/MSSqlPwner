@@ -30,7 +30,10 @@ class CustomThread(Thread):
 
     def run(self):
         if self._target is not None:
-            self._return = self._target(*self._args, **self._kwargs)
+            try:
+                self._return = self._target(*self._args, **self._kwargs)
+            except Exception as e:
+                self._return = return_result(False, f"Query failed: {e}", [])
 
     def join(self, *args, **kwargs) -> Any:
         Thread.join(self, *args, **kwargs)
